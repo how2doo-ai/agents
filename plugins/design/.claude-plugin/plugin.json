@@ -1,0 +1,13 @@
+{
+  "name": "design",
+  "version": "0.1.0",
+  "description": "Portable design craft as a skill — grounds UI in semantic tokens + a known component substrate (shadcn/Tailwind/lucide), rejects the looks AI defaults to, and spends motion deliberately. Reads a per-repo BRAND.md for brand-specific tokens.",
+  "author": {
+    "name": "alohamonius"
+  },
+  "homepage": "https://github.com/alohamonius/how2doo-agents",
+  "repository": "https://github.com/alohamonius/how2doo-agents",
+  "license": "MIT",
+  "keywords": ["design", "ui", "frontend", "shadcn", "tailwind", "motion", "skill"],
+  "skills": "./skills/"
+}

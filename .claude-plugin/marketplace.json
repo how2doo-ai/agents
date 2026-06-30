@@ -1,0 +1,31 @@
+{
+  "name": "how2doo",
+  "owner": {
+    "name": "alohamonius"
+  },
+  "metadata": {
+    "description": "Portable agent skills for Claude Code — the reusable craft behind how2doo. Shared skill + per-repo config.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "design",
+      "source": "./plugins/design",
+      "description": "Portable design craft — grounds UI in semantic tokens + a known component substrate (shadcn/Tailwind/lucide), rejects the looks AI defaults to, and spends motion deliberately. Reads a per-repo BRAND.md.",
+      "version": "0.1.0",
+      "category": "design",
+      "keywords": ["design", "ui", "frontend", "shadcn", "tailwind", "motion"]
+    },
+    {
+      "name": "seo-agent",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/alohamonius/seo-agent.git",
+        "ref": "main"
+      },
+      "description": "Autonomous SEO agent — GA4 + Search Console analytics, DataForSEO keyword/SERP/competitor research, seasonal opportunity scoring. Configured per project via .claude/seo/.env.",
+      "category": "seo",
+      "keywords": ["seo", "analytics", "ga4", "search-console", "dataforseo", "keyword-research"]
+    }
+  ]
+}

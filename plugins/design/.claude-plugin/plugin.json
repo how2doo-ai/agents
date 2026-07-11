@@ -5,8 +5,8 @@
   "author": {
     "name": "alohamonius"
   },
-  "homepage": "https://github.com/alohamonius/how2doo-agents",
-  "repository": "https://github.com/alohamonius/how2doo-agents",
+  "homepage": "https://github.com/how2doo-ai/agents",
+  "repository": "https://github.com/how2doo-ai/agents",
   "license": "MIT",
   "keywords": ["design", "ui", "frontend", "shadcn", "tailwind", "motion", "skill"],
   "skills": "./skills/"

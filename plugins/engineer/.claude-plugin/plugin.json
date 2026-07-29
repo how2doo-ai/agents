@@ -1,0 +1,11 @@
+{
+  "name": "engineer",
+  "version": "0.1.0",
+  "description": "The iteration engineer — one bounded, spec-driven pass toward a goal per run. Owns the HOW, never the WHAT: works from your goal's success criteria, keeps tasks in a beads ledger when present, measures state with deterministic sh (state.sh) and commits only on a green gate (gate.sh). Modes: sdd none (pure Ralph) | light (acceptance criteria on every task). Full SDD + hooks enforcement + the spec agent live in engineer-pro.",
+  "author": { "name": "alohamonius" },
+  "homepage": "https://github.com/how2doo-ai/agents",
+  "repository": "https://github.com/how2doo-ai/agents",
+  "license": "MIT",
+  "keywords": ["engineer", "agent", "loop", "ralph", "beads", "sdd", "skill"],
+  "skills": "./skills/"
+}

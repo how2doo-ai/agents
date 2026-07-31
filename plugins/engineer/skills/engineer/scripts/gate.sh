@@ -20,6 +20,14 @@ if [ -n "${TEST_CMD:-}" ]; then
   if eval "$TEST_CMD" >/dev/null 2>&1; then te=ok; else te=fail; fi
 fi
 
+# both unconfigured = nothing was verified — that is NOT green, it's a
+# misconfigured gate. Silent-pass here is exactly how a fail-open gate
+# becomes indistinguishable from no gate at all.
+if [ "$tc" = skipped ] && [ "$te" = skipped ]; then
+  printf '{"typecheck":"skipped","tests":"skipped","green":false,"error":"no TYPECHECK_CMD or TEST_CMD configured — nothing was verified"}\n'
+  exit 1
+fi
+
 green=true
 { [ "$tc" = fail ] || [ "$te" = fail ]; } && green=false
 printf '{"typecheck":"%s","tests":"%s","green":%s}\n' "$tc" "$te" "$green"

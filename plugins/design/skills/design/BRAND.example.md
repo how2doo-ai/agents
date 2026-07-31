@@ -2,6 +2,8 @@
 
 Drop a `BRAND.md` like this in any repo that uses the `design` skill. The skill reads it first, and **it overrides the skill's defaults**: the portable craft (skill) stays shared; the brand (this file) stays local. This is the "shared skill + per-repo config" split.
 
+You can write this by hand, or run `/design generate` to derive/maintain it automatically from reference material or the repo's existing UI — generate also writes a sibling `docs/design/tokens.json` that `/design apply <page>` uses to deterministically check pages against it. Either way, the canonical location is `docs/design/BRAND.md` (a root `BRAND.md` also still works, for repos that already have one there).
+
 Keep it short and concrete — it's injected as context, not documentation.
 
 ---

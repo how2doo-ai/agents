@@ -1,9 +1,17 @@
 ---
 name: design
-description: Portable craft for distinctive, production-grade UI — grounds every choice in semantic tokens + a known component substrate (shadcn/Tailwind/lucide), rejects the looks AI defaults to, and spends motion deliberately. Reads a per-repo BRAND.md for brand-specific tokens; portable across projects. Use when building a new UI, a landing page, or reshaping an existing one and the bar is "distinctive and expensive," not "shipped a template."
+description: Portable craft for distinctive, production-grade UI — grounds every choice in semantic tokens + a known component substrate (shadcn/Tailwind/lucide), rejects the looks AI defaults to, and spends motion deliberately. Reads a per-repo BRAND.md for brand-specific tokens; portable across projects. Two extra modes derive and maintain that brand automatically: `generate` (derive BRAND.md + tokens.json from reference material or the repo's existing styles) and `apply <page>` (deterministic conformance report against tokens.json, never an auto-edit). Use when building a new UI, a landing page, or reshaping an existing one and the bar is "distinctive and expensive," not "shipped a template" — or when a repo needs its brand documented/enforced instead of hand-maintained.
 ---
 
 # Design
+
+Three modes. Read the argument to pick one — no argument, or a brief that's just asking for UI, means the default craft mode below.
+
+- *(default, no mode keyword)* — design/build a UI to the standard in this file.
+- `/design generate [reference-path-or-url...]` — derive or re-derive `docs/design/BRAND.md` + `tokens.json` for this repo.
+- `/design apply <page-or-component-path> [--out <path>]` — deterministic conformance check of one file against the current brand.
+
+## Default mode: design and build
 
 You are the design lead at a small studio known for giving every client a visual identity that **could not be mistaken for anyone else's**. The client has already rejected templated proposals and is paying for a distinctive point of view. Make deliberate, opinionated choices about palette, typography, layout, and motion that are specific to *this* brief, and take one real aesthetic risk you can justify.
 
@@ -15,7 +23,7 @@ A design that only has the floor is *clean and forgettable*. One that reaches fo
 
 ## 0. Read the brand first
 
-Before designing, look for a `BRAND.md` (or `brand/tokens.css`) in the project. If it exists, **it wins** — its palette, type, voice, and tokens are the law; your job is to execute them distinctively, not invent new ones. See `BRAND.example.md` for the shape.
+Before designing, look for `docs/design/BRAND.md`, then a root `BRAND.md` (older/hand-authored convention), then `brand/tokens.css`. If one exists, **it wins** — its palette, type, voice, and tokens are the law; your job is to execute them distinctively, not invent new ones. See `BRAND.example.md` for the shape. If none exists and you have reference material or enough of an existing UI to derive from, prefer running `generate` first over guessing.
 
 If there is no brand file and the brief doesn't pin the subject down, **pin it yourself before designing**: name one concrete subject, its audience, and the page's single job, and state your choice. Use anything in memory about the human's preferences or past work as a hint.
 
@@ -82,7 +90,7 @@ Do not one-shot. The leaders sequence work and gather context first; so do you.
    - **Signature** — the one unique element that embodies the brief.
 3. **Critique the plan against the brief.** Run the same prompt as a generic designer would — if any part of your plan lands where *that* would land, it's a default, not a choice. Revise it; note what you changed and why. Only build once the plan is provably non-generic.
 4. **Build** from the revised plan exactly. Sequence the work — design page-by-page / section-by-section; don't pile five tasks into one pass.
-5. **Critique again while building.** Take screenshots if the environment allows (a picture is worth 1000 tokens). Jot notes on what you tried so future passes don't repeat it.
+5. **Critique again while building.** If a browser tool is available (Playwright, chrome-devtools, or similar), don't drive it inline — dispatch a subagent to load the page, take screenshots, and report back a short critique. Screenshots, console output, and network/perf traces are verification noise: they belong in that subagent's own isolated context, not piled into the one doing the actual design/build work. Bring back findings, not raw tool output. Jot notes on what you tried so future passes don't repeat it.
 
 Do the planning and iteration in your thinking; only show the user ideas you have real confidence will delight them.
 
@@ -99,3 +107,32 @@ Words exist to make the UI easier to understand. Bring the same intentionality t
 1. **The token plan** (color / type / layout / signature) — stated, and shown to be non-generic.
 2. **The build** — grounded in tokens and the substrate, floor rules satisfied, one signature element, motion only where it serves.
 3. **A one-line note** on the aesthetic risk you took and why it fits this brief.
+
+## Mode: generate
+
+Full contract: `CONTRACT.md` (ships alongside this file). Derives (or re-derives) this repo's own `docs/design/BRAND.md` + `docs/design/tokens.json` — so the brand is a documented, living artifact instead of a one-time hand-written file. Portable: nothing here assumes any one repo's stack.
+
+1. **Reference material.** Use every path/URL given as an argument (`Read` images directly — look at them, don't guess colors from a description). If none given, derive from what already exists in this repo: its current stylesheet/tailwind theme, screenshots the human points you at, or the conversation brief. If there's truly no reference and no existing UI to read from, **ask** rather than fabricating a palette from nothing.
+2. **Re-derivation, not a blank rewrite.** If `docs/design/BRAND.md` / `tokens.json` already exist, read them first. Keep everything still true, update only what the new material changes, and add a short note on what changed and why. Never silently overwrite prior reasoning.
+3. **Derive the palette** (3–5 colors, per floor rule 3) by looking and reasoning, not by formula — record *why* each value (what in the reference it's reading), not just the hex. Flag anything read off a low-quality/compressed image area as an estimate, not a fact.
+4. **Pick an icon set — reuse before adding.** Check `package.json` (or the repo's actual imports) for an icon library already in use (lucide-react, heroicons, @radix-ui/react-icons, phosphor, tabler, …) and keep using it. Only if none exists, propose one — default to **lucide-react** (MIT, tree-shakeable) — and call it out explicitly as a new dependency for the human to confirm before it's added. Never add a second one just to compare options.
+5. **Enumerate current icon usage before mapping anything** (search before you assume) — grep the repo's UI source for ad-hoc emoji/symbol icons actually in use, group them into usage classes that make sense for *this* repo's structure (nav, buttons, status, cards, whatever it actually has). Map each distinct symbol to a specific named icon from the chosen set; no direct match → the closest semantic icon with a `note` explaining the substitution — never a silently-dropped row.
+6. **Typography & spacing** — read from the repo's existing global stylesheet / tailwind config; don't invent new conventions unless the reference genuinely conflicts with what's there.
+7. **Write both, kept in sync, validated against `tokens.schema.json`:**
+   - `docs/design/BRAND.md` — the `BRAND.example.md` shape (Subject, Palette + reasoning, Typography, Signature/non-negotiables, Motion, Voice), plus a change note on re-derives.
+   - `docs/design/tokens.json` — machine-readable: `{ contractVersion, generated, source?, confidence?, colors: {...}, iconSet?: {...}, icons: { <usageClass>: [{site, current, proposed, note?}] }, unchanged?: [...], oldThemeCssPath?: <path to the stylesheet colors were read from> }`. Stamp `contractVersion` to match `CONTRACT.md`'s current version (bump it only when `CONTRACT.md` itself changes, not on every brand re-derive). This is what makes `apply` deterministic instead of re-guessing each run.
+8. Touch nothing else in this mode — no component/page files change, only `docs/design/`.
+
+## Mode: apply
+
+Full contract: `CONTRACT.md`. Deterministic check of one file against the current brand — no judgment call in it (string-matching a known token table is not a design decision), so it's a real script, not a model doing its best to be consistent:
+
+```
+npx tsx .claude/skills/design/scripts/apply.ts <page-or-component-path> [--out <report-path>] [--tokens <tokens.json-path>]
+```
+
+1. Requires `docs/design/tokens.json` (or whatever `--tokens` points at) to exist — the script errors and exits non-zero if it's missing, telling the caller to run `generate` first. Don't improvise a brandbook on the spot, and don't hand-write a report instead of running the script.
+2. It reads the target file plus the tokens' icon mapping, and old-theme colors from whatever stylesheet `generate` recorded (or a short list of conventional fallback paths), and emits a Markdown report to stdout or `--out`.
+3. `verdict: conforms` (no deviations) is a correct, expected output just as often as `deviations-found` — never re-run it hoping for a "better" answer, and never hand-add a finding the script didn't report.
+4. **The script never edits the target file.** If asked to go further and actually apply a proposal as real code, that's separate work — route it through whatever this repo's normal review process is (a draft PR, not a silent auto-edit).
+5. Re-running against the same file with an unchanged tokens.json produces byte-identical output — it's a pure function of two files on disk. If it ever disagrees with itself, that's a bug in the script, not acceptable variance.

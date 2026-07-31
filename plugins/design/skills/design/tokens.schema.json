@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://how2doo.dev/schemas/design-tokens/v1.json",
+  "title": "design tokens.json — the design skill's machine-readable brandbook",
+  "description": "Validated shape of docs/design/tokens.json. Ships inside the design skill (.claude/skills/design/tokens.schema.json after install) so any editor/tool can validate against it locally — no network fetch required. See CONTRACT.md for the rules this schema is part of.",
+  "type": "object",
+  "required": ["contractVersion", "generated", "colors", "icons"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Conventionally a relative path back to this file, e.g. \"../../.claude/skills/design/tokens.schema.json\", so editors can validate/autocomplete without a network fetch."
+    },
+    "contractVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Semver of THIS schema (independent of the design plugin's own version). generate stamps the current contract version; a repo whose tokens.json is behind gets called out and migrated, never silently reinterpreted."
+    },
+    "source": {
+      "type": "string",
+      "description": "What generate derived this from: a reference image/URL path, or a note like 'existing repo styles' when no reference material was given."
+    },
+    "generated": {
+      "type": "string",
+      "description": "ISO date this file was last (re-)derived."
+    },
+    "confidence": {
+      "type": "string",
+      "description": "Free-text confidence note, e.g. 'derived-exact' (read off real tokens/variables) vs 'estimated-from-screenshot' (visual guess — flag these, don't assert them as fact)."
+    },
+    "colors": {
+      "type": "object",
+      "description": "3-5 named colors per the design skill's floor rule (1 primary, 2-3 neutrals, 1-2 accents). Key names are free-form per repo (e.g. 'accent', 'primary') — apply.ts prefers a key literally named 'accent' when annotating color deviations, but falls back gracefully if absent.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["value", "usage"],
+        "properties": {
+          "value": { "type": "string", "description": "CSS color value — hex, rgba(), or hsl()." },
+          "usage": { "type": "string", "description": "Where/when this color is used, in plain language." }
+        }
+      }
+    },
+    "iconSet": {
+      "type": "object",
+      "description": "The chosen icon library, if this repo needed one mapped. Omit entirely if the repo doesn't use ad-hoc emoji/symbol icons.",
+      "required": ["package", "license"],
+      "properties": {
+        "package": { "type": "string", "description": "e.g. 'lucide-react' — prefer whatever the repo already depends on; only propose a new one if none exists." },
+        "license": { "type": "string", "description": "Must be permissive (MIT/ISC/similar) — checked before adopting." },
+        "style": { "type": "string", "description": "Visual style note, e.g. 'thin, rounded-cap line icons'." },
+        "fallbackPolicy": { "type": "string", "description": "What to do when no direct icon match exists — must never be a silently-dropped mapping." }
+      }
+    },
+    "icons": {
+      "type": "object",
+      "description": "Usage classes (named per this repo's own structure — nav, buttons, status, cards, ...) mapping every ad-hoc symbol found in use to a proposed icon.",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["site", "current", "proposed"],
+          "properties": {
+            "site": { "type": "string", "description": "Where this symbol is used — file:line or a short descriptive location." },
+            "current": { "type": "string", "description": "The symbol(s) currently in use. Multiple equivalents separated by ' / '." },
+            "proposed": { "type": "string", "description": "The icon name from iconSet.package this should become." },
+            "note": { "type": "string", "description": "Explains a non-obvious substitution — required whenever there's no direct semantic match." }
+          }
+        }
+      }
+    },
+    "unchanged": {
+      "type": "array",
+      "description": "Things explicitly reviewed and left alone, so the next run doesn't re-flag them as an oversight.",
+      "items": {
+        "type": "object",
+        "required": ["site", "note"],
+        "properties": {
+          "site": { "type": "string" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "oldThemeCssPath": {
+      "type": "string",
+      "description": "Repo-relative path to the stylesheet generate read the PRIOR palette's CSS custom properties from (e.g. 'app/globals.css'). apply.ts uses this to find old-theme colors still in use; falls back to a short list of conventional paths if absent."
+    }
+  }
+}

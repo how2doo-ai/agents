@@ -1,7 +1,7 @@
 {
   "name": "design",
-  "version": "0.3.0",
-  "description": "Portable design craft as a skill — grounds UI in semantic tokens + a known component substrate (shadcn/Tailwind/lucide), rejects the looks AI defaults to, and spends motion deliberately. Reads a per-repo BRAND.md for brand-specific tokens. `generate`/`apply` modes derive and enforce that brand automatically instead of it being hand-maintained, against a versioned, schema-validated contract (CONTRACT.md + tokens.schema.json) so every installed repo gets the identical standard.",
+  "version": "0.4.0",
+  "description": "Portable design craft and evidence-based ultrareview — grounds UI in semantic tokens + a known component substrate (shadcn/Tailwind/lucide), rejects the looks AI defaults to, and spends motion deliberately. Reads a per-repo BRAND.md for brand-specific tokens. `generate`/`apply` derive and enforce that brand automatically, while read-only `review` evaluates hierarchy, states, accessibility, responsiveness, motion, and performance from rendered evidence.",
   "author": {
     "name": "alohamonius"
   },

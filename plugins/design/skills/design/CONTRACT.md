@@ -8,7 +8,7 @@ Ships inside the skill (`.claude/skills/design/CONTRACT.md` after install) —
 it's part of the installable unit, not a wiki page that drifts from what
 actually runs.
 
-Contract version: **1.0.0** (matches the initial `contractVersion` this
+Contract version: **1.1.0** (matches the initial `contractVersion` this
 skill's `generate` mode stamps into `tokens.json` — see §II).
 
 ## I. One installable unit
@@ -39,40 +39,51 @@ skill's `generate` mode stamps into `tokens.json` — see §II).
    build mode reads it before any generic default (SKILL.md §0). A root
    `BRAND.md` (the older hand-authored convention) is still honored for
    repos that already have one there.
+5. A host repo that already has `docs/design/BRANDBOOK.md` plus
+   `docs/design/tokens.json` is a compatible legacy state. The skill reads
+   that brandbook as law and must not rename or overwrite it during review or
+   default build mode. Moving it to `BRAND.md` is an explicit migration, not
+   an install side effect.
 
-## III. Three verbs, same everywhere
+## III. Four modes, same everywhere
 
-5. *(default, no mode keyword)* — build/redesign a UI. `BRAND.md` is law
+6. *(default, no mode keyword)* — build/redesign a UI. `BRAND.md` is law
    when present; otherwise pin the brief explicitly rather than guessing.
-6. `generate [reference...]` — derive or re-derive the two files above.
+7. `review <page-or-component-path-or-route>` — read-only ultrareview of the
+   rendered interface. It reports evidence-backed quality findings but never
+   edits the target or changes an `apply` verdict.
+8. `generate [reference...]` — derive or re-derive the two files above.
    Re-running is always re-derivation with a change note, never a blind
    overwrite of prior reasoning (SKILL.md Mode: generate, rule 2).
-7. `apply <page> [--out <path>] [--tokens <path>]` — runs
+9. `apply <page> [--out <path>] [--tokens <path>]` — runs
    `npx tsx .claude/skills/design/scripts/apply.ts`. A pure function of two
    files on disk (the target file + `tokens.json`): same inputs → the exact
    same report, every time. No model judgment inside it.
 
 ## IV. Never an auto-edit
 
-8. `apply`'s report is the **only** output of that mode — it never writes to
+10. `apply`'s report is the **only** output of that mode — it never writes to
    the target file, ever. Turning a reported deviation into a real code
    change is separate work, routed through whatever review process the host
    repo already uses (a draft PR, a normal commit + review) — never a
    silent edit as a side effect of checking conformance.
-9. `verdict: conforms` is exactly as valid an outcome as
+11. `verdict: conforms` is exactly as valid an outcome as
    `verdict: deviations-found` — never re-run hoping for a different
    answer, never hand-add a finding the script didn't emit.
 
 ## V. Enforcement
 
-10. No placeholders: a `generate` run that doesn't actually look at the
+12. No placeholders: a `generate` run that doesn't actually look at the
     given reference material, or an `apply` run that doesn't actually read
     the target file, is a fabricated result, not a shortcut.
-11. Leave a trail: `BRAND.md`'s reasoning and change notes are what the next
+13. Leave a trail: `BRAND.md`'s reasoning and change notes are what the next
     run — in this repo, or a completely different one that installed the
     same skill — reads instead of re-deriving everything from scratch.
 
 ## Changelog
 
+- **1.1.0** (2026-08-01) — added read-only `review` mode with rendered-
+  evidence requirements and explicit compatibility for host repos that use
+  `docs/design/BRANDBOOK.md`.
 - **1.0.0** (2026-07-31) — initial contract: two files, three verbs,
   `tokens.schema.json` published alongside the skill.

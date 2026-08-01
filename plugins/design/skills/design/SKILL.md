@@ -5,9 +5,10 @@ description: Portable craft for distinctive, production-grade UI — grounds eve
 
 # Design
 
-Three modes. Read the argument to pick one — no argument, or a brief that's just asking for UI, means the default craft mode below.
+Four modes. Read the argument to pick one — no argument, or a brief that's just asking for UI, means the default craft mode below.
 
 - *(default, no mode keyword)* — design/build a UI to the standard in this file.
+- `/design review <page-or-component-path-or-route>` — read-only ultrareview grounded in rendered evidence; never edits the target.
 - `/design generate [reference-path-or-url...]` — derive or re-derive `docs/design/BRAND.md` + `tokens.json` for this repo.
 - `/design apply <page-or-component-path> [--out <path>]` — deterministic conformance check of one file against the current brand.
 
@@ -23,7 +24,7 @@ A design that only has the floor is *clean and forgettable*. One that reaches fo
 
 ## 0. Read the brand first
 
-Before designing, look for `docs/design/BRAND.md`, then a root `BRAND.md` (older/hand-authored convention), then `brand/tokens.css`. If one exists, **it wins** — its palette, type, voice, and tokens are the law; your job is to execute them distinctively, not invent new ones. See `BRAND.example.md` for the shape. If none exists and you have reference material or enough of an existing UI to derive from, prefer running `generate` first over guessing.
+Before designing, look for `docs/design/BRAND.md`, then `docs/design/BRANDBOOK.md` (a compatible legacy host format), then a root `BRAND.md` (older/hand-authored convention), then `brand/tokens.css`. If one exists, **it wins** — its palette, type, voice, and tokens are the law; your job is to execute them distinctively, not invent new ones. See `BRAND.example.md` for the shape. If none exists and you have reference material or enough of an existing UI to derive from, prefer running `generate` first over guessing.
 
 If there is no brand file and the brief doesn't pin the subject down, **pin it yourself before designing**: name one concrete subject, its audience, and the page's single job, and state your choice. Use anything in memory about the human's preferences or past work as a hint.
 
@@ -108,11 +109,44 @@ Words exist to make the UI easier to understand. Bring the same intentionality t
 2. **The build** — grounded in tokens and the substrate, floor rules satisfied, one signature element, motion only where it serves.
 3. **A one-line note** on the aesthetic risk you took and why it fits this brief.
 
+## Mode: review
+
+This is a read-only, perceptual complement to `apply`. It judges whether the
+rendered interface helps a person complete its task; it does not make edits,
+invent a code diff, or redefine the brand. Read
+[`references/ultrareview.md`](./references/ultrareview.md) before reviewing.
+
+1. State the interface's user task, primary action, and success signal. Inspect
+   the actual implementation and its loading, empty, error, selected, disabled,
+   and narrow-screen states where relevant.
+2. Run `apply` first when the target is a source file with `tokens.json`.
+   Its result proves only literal token/icon conformance, never visual quality.
+3. Use a browser tool when available: capture desktop and narrow-mobile states,
+   exercise changed or primary interactions, inspect the accessibility tree,
+   and check console errors. If a rendered check is unavailable, say visual
+   verification is pending rather than inferring pixels from source.
+4. Report only applicable rubric findings, each as `blocker`, `important`, or
+   `polish`, with observed evidence, user impact, and a concrete recommendation.
+   Separate facts from design inferences. Include task clarity, hierarchy,
+   system coherence, information density, state coverage, interaction,
+   responsive behavior, motion, and performance.
+5. Research a narrow pattern only when the repo and its brand cannot answer it.
+   Record the reference URL and the principle borrowed; never copy an asset,
+   full layout, or animation wholesale. Do not add a dependency during review.
+
+## Source-guided craft
+
+When outside research helps, use the sources in `references/ultrareview.md`
+according to their declared role. Phosphor is useful for semantic icon lookup,
+Recent and Layers for comparable patterns, and Animista for testing a single
+motion treatment. Reuse the repo's installed icon family; Phosphor is never a
+reason to mix icon systems or add a second package by default.
+
 ## Mode: generate
 
 Full contract: `CONTRACT.md` (ships alongside this file). Derives (or re-derives) this repo's own `docs/design/BRAND.md` + `docs/design/tokens.json` — so the brand is a documented, living artifact instead of a one-time hand-written file. Portable: nothing here assumes any one repo's stack.
 
-1. **Reference material.** Use every path/URL given as an argument (`Read` images directly — look at them, don't guess colors from a description). If none given, derive from what already exists in this repo: its current stylesheet/tailwind theme, screenshots the human points you at, or the conversation brief. If there's truly no reference and no existing UI to read from, **ask** rather than fabricating a palette from nothing.
+1. **Reference material.** Use every path/URL given as an argument (`Read` images directly — look at them, don't guess colors from a description). If none given, derive from what already exists in this repo: its current stylesheet/tailwind theme, screenshots the human points you at, or the conversation brief. If there's truly no reference and no existing UI to read from, **ask** rather than fabricating a palette from nothing. An existing `docs/design/BRANDBOOK.md` is compatible input: preserve it unless the human explicitly asks to migrate it to the portable `BRAND.md` format.
 2. **Re-derivation, not a blank rewrite.** If `docs/design/BRAND.md` / `tokens.json` already exist, read them first. Keep everything still true, update only what the new material changes, and add a short note on what changed and why. Never silently overwrite prior reasoning.
 3. **Derive the palette** (3–5 colors, per floor rule 3) by looking and reasoning, not by formula — record *why* each value (what in the reference it's reading), not just the hex. Flag anything read off a low-quality/compressed image area as an estimate, not a fact.
 4. **Pick an icon set — reuse before adding.** Check `package.json` (or the repo's actual imports) for an icon library already in use (lucide-react, heroicons, @radix-ui/react-icons, phosphor, tabler, …) and keep using it. Only if none exists, propose one — default to **lucide-react** (MIT, tree-shakeable) — and call it out explicitly as a new dependency for the human to confirm before it's added. Never add a second one just to compare options.

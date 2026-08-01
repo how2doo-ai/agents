@@ -1,6 +1,6 @@
 ---
 name: design
-description: Portable craft for distinctive, production-grade UI — grounds every choice in semantic tokens + a known component substrate (shadcn/Tailwind/lucide), rejects the looks AI defaults to, and spends motion deliberately. Reads a per-repo BRAND.md for brand-specific tokens; portable across projects. Two extra modes derive and maintain that brand automatically: `generate` (derive BRAND.md + tokens.json from reference material or the repo's existing styles) and `apply <page>` (deterministic conformance report against tokens.json, never an auto-edit). Use when building a new UI, a landing page, or reshaping an existing one and the bar is "distinctive and expensive," not "shipped a template" — or when a repo needs its brand documented/enforced instead of hand-maintained.
+description: Portable craft for distinctive, production-grade UI — grounds every choice in semantic tokens + a known component substrate (shadcn/Tailwind/lucide), rejects the looks AI defaults to, and spends motion deliberately. A human-directed loop separates discovery from implementation and makes intent, trade-offs, approval, and rendered evidence visible. Reads a per-repo BRAND.md for brand-specific tokens; portable across projects. Three additional modes maintain that brand and assess outcomes: `generate` (derive BRAND.md + tokens.json from reference material or the repo's existing styles), `apply <page>` (deterministic conformance report against tokens.json, never an auto-edit), and `review <target>` (read-only ultrareview). Use when building a new UI, a landing page, or reshaping an existing one and the bar is "distinctive and expensive," not "shipped a template" — or when a repo needs its brand documented/enforced instead of hand-maintained.
 ---
 
 # Design
@@ -26,7 +26,10 @@ A design that only has the floor is *clean and forgettable*. One that reaches fo
 
 Before designing, look for `docs/design/BRAND.md`, then `docs/design/BRANDBOOK.md` (a compatible legacy host format), then a root `BRAND.md` (older/hand-authored convention), then `brand/tokens.css`. If one exists, **it wins** — its palette, type, voice, and tokens are the law; your job is to execute them distinctively, not invent new ones. See `BRAND.example.md` for the shape. If none exists and you have reference material or enough of an existing UI to derive from, prefer running `generate` first over guessing.
 
-If there is no brand file and the brief doesn't pin the subject down, **pin it yourself before designing**: name one concrete subject, its audience, and the page's single job, and state your choice. Use anything in memory about the human's preferences or past work as a hint.
+If there is no brand file and the brief doesn't pin the subject down, use the
+human-directed loop below before choosing a new visual direction. For a small,
+reversible repair, state the narrow assumption you are making and continue; do
+not turn an underspecified request into a fabricated brand.
 
 ## The floor (hard rules — never break these)
 
@@ -79,21 +82,59 @@ When it does serve the brief, the production toolkit:
 
 Each animation must advance the narrative as the user scrolls — no random motion. But hold the line: if a scroll effect doesn't serve the subject, cutting it *is* the craft.
 
-## Process: brainstorm → plan → critique → build → critique again
+## Human-directed loop: brief → decide → build → inspect → learn
 
-Do not one-shot. The leaders sequence work and gather context first; so do you.
+Do not one-shot and do not hide material product choices inside private
+reasoning. A human needs a small, editable control surface, not a vague promise
+of deeper thinking. Read [`references/human-loop.md`](./references/human-loop.md)
+before beginning a new direction or a deep review.
 
-1. **Think holistically first.** Before generating, consider the whole project — existing files, prior changes, dependencies, downstream impact. Coherence is a precondition, not an afterthought.
-2. **Brainstorm a compact token plan** (in your thinking, before code):
-   - **Color** — 4–6 named hex values.
-   - **Type** — faces for 2+ roles (characterful display used with restraint; complementary body; utility face for captions/data if needed).
-   - **Layout** — a one-sentence concept + ASCII wireframes to compare options.
-   - **Signature** — the one unique element that embodies the brief.
-3. **Critique the plan against the brief.** Run the same prompt as a generic designer would — if any part of your plan lands where *that* would land, it's a default, not a choice. Revise it; note what you changed and why. Only build once the plan is provably non-generic.
-4. **Build** from the revised plan exactly. Sequence the work — design page-by-page / section-by-section; don't pile five tasks into one pass.
-5. **Critique again while building.** If a browser tool is available (Playwright, chrome-devtools, or similar), don't drive it inline — dispatch a subagent to load the page, take screenshots, and report back a short critique. Screenshots, console output, and network/perf traces are verification noise: they belong in that subagent's own isolated context, not piled into the one doing the actual design/build work. Bring back findings, not raw tool output. Jot notes on what you tried so future passes don't repeat it.
+1. **Classify the request.** A focused repair with clear acceptance criteria
+   can go straight to a compact plan and implementation. A new screen,
+   ambiguous redesign, or a change to the visual language is *directional*:
+   pause before code and use the decision gate in step 3.
+2. **Write a brief the human can correct.** State the actor, primary task,
+   success signal, target surface, real content/data, constraints and
+   non-goals. Include what must not change. Ask only for the missing fact that
+   would materially change the result; screenshots, an existing route, and
+   comparable examples are valid input.
+3. **Make the decision visible.** For a directional request, offer two or
+   three *named approaches on the actual decision axes* (for example,
+   information density, navigation model, or emphasis), with trade-offs and
+   one recommended option. Do not create three cosmetic reskins. Wait for a
+   choice or a clear instruction to choose before implementing. A compact
+   request may instead state one safe assumption and proceed.
+4. **Plan the smallest complete increment.** Name the components, data/states,
+   responsive behavior, accessibility, and verification needed for this one
+   change. Reuse the repo's registry/component substrate and its semantic
+   tokens; a system is useful only if its controls expose meaningful variation.
+5. **Build one increment.** Keep the change focused. Use real content, not
+   representative filler. Do not bundle unrelated cleanup or aesthetic
+   experimentation into the human's requested change.
+6. **Inspect rendered evidence.** Capture the agreed desktop and narrow
+   viewport, primary interaction, the relevant loading/empty/error/selected/
+   disabled states, keyboard focus/accessibility evidence, and console errors.
+   Compare before/after only when it clarifies a decision; screenshots are
+   evidence, not decoration.
+7. **Close the loop in human language.** Say what changed, show the evidence,
+   name remaining trade-offs, and ask for a specific acceptance decision when
+   the change is directional. Translate confirmed recurring feedback into a
+   short `BRAND.md` change note; never silently turn a passing preference into
+   a permanent rule.
 
-Do the planning and iteration in your thinking; only show the user ideas you have real confidence will delight them.
+### Compact token plan
+
+Once a direction is chosen, make the implementation plan concrete:
+
+- **Color** — 3–5 named hex values only when a brand needs deriving; otherwise
+  use the existing semantic tokens.
+- **Type** — faces for 2+ roles, or existing type roles when they are law.
+- **Layout** — one sentence explaining scan order and the primary action.
+- **Signature** — one optional unique element that serves the subject; omit it
+  if the task is a utilitarian repair.
+
+Critique this plan against the brief. If it lands where a generic designer
+would land, it is a default rather than a choice; revise it before building.
 
 ## Copy is design material
 
@@ -114,7 +155,13 @@ Words exist to make the UI easier to understand. Bring the same intentionality t
 This is a read-only, perceptual complement to `apply`. It judges whether the
 rendered interface helps a person complete its task; it does not make edits,
 invent a code diff, or redefine the brand. Read
-[`references/ultrareview.md`](./references/ultrareview.md) before reviewing.
+[`references/ultrareview.md`](./references/ultrareview.md) and
+[`references/human-loop.md`](./references/human-loop.md) before reviewing.
+
+Use the compact review path for a concrete target. Use a **deep review** when
+the human asks for a redesign or needs to choose among competing directions:
+produce the editable brief and decision options, but do not edit code. A deep
+review is still an approval aid, never an invisible design exercise.
 
 1. State the interface's user task, primary action, and success signal. Inspect
    the actual implementation and its loading, empty, error, selected, disabled,
@@ -130,7 +177,10 @@ invent a code diff, or redefine the brand. Read
    Separate facts from design inferences. Include task clarity, hierarchy,
    system coherence, information density, state coverage, interaction,
    responsive behavior, motion, and performance.
-5. Research a narrow pattern only when the repo and its brand cannot answer it.
+5. End with a decision-oriented outcome: `ready to implement`, `needs a human
+   choice`, or `not recommended`, plus the smallest next action. Do not make
+   an unprioritised scorecard the handoff.
+6. Research a narrow pattern only when the repo and its brand cannot answer it.
    Record the reference URL and the principle borrowed; never copy an asset,
    full layout, or animation wholesale. Do not add a dependency during review.
 

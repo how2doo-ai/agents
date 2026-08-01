@@ -8,7 +8,7 @@ Ships inside the skill (`.claude/skills/design/CONTRACT.md` after install) —
 it's part of the installable unit, not a wiki page that drifts from what
 actually runs.
 
-Contract version: **1.1.0** (matches the initial `contractVersion` this
+Contract version: **1.2.0** (matches the initial `contractVersion` this
 skill's `generate` mode stamps into `tokens.json` — see §II).
 
 ## I. One installable unit
@@ -80,10 +80,33 @@ skill's `generate` mode stamps into `tokens.json` — see §II).
     run — in this repo, or a completely different one that installed the
     same skill — reads instead of re-deriving everything from scratch.
 
+## VI. Human direction and review evidence
+
+14. Default build mode separates a focused repair from a directional change.
+    A new surface, an ambiguous redesign, or a material visual-language choice
+    needs an editable brief and a visible decision gate before implementation.
+    The agent may state one narrow assumption for a small reversible repair;
+    it must not fabricate a brand to escape an ambiguous brief.
+15. A directional decision presents two or three meaningful approaches on the
+    relevant product axis, a recommendation, and trade-offs. The human chooses
+    (or explicitly delegates the choice) before code changes. Cosmetic reskins
+    do not satisfy this requirement.
+16. A completed UI increment reports rendered evidence for the agreed desktop
+    and narrow viewport, relevant user interaction and states, accessibility
+    or keyboard focus, and console errors. If that evidence cannot be captured,
+    the result is clearly called a source-only review; source code is not proof
+    of visual quality.
+17. Repeated, *confirmed* human feedback may be captured as a concise change
+    note in `BRAND.md`. A one-off preference remains conversational context;
+    it must not silently become a permanent token or a new project rule.
+
 ## Changelog
 
 - **1.1.0** (2026-08-01) — added read-only `review` mode with rendered-
   evidence requirements and explicit compatibility for host repos that use
   `docs/design/BRANDBOOK.md`.
+- **1.2.0** (2026-08-01) — added a human-directed design loop: editable brief,
+  visible direction choice, focused increment, rendered state evidence, and
+  explicit confirmation before recurring feedback becomes brand guidance.
 - **1.0.0** (2026-07-31) — initial contract: two files, three verbs,
   `tokens.schema.json` published alongside the skill.

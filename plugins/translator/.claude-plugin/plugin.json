@@ -1,0 +1,11 @@
+{
+  "name": "translator",
+  "version": "0.1.0",
+  "description": "Translation and translation review that a native reader can't tell apart from original copy. Translates meaning, not words, with the repo's glossary as law, register per surface (ви/ти), banned anglicisms and Russianisms, and placeholders untouched. A zero-dependency script supplies what an agent alone cannot: a machine draft from any OpenRouter model or DeepL, an independent second-model reviewer from a different family, a side-by-side compare for choosing a model, and free offline checks (dropped {placeholders}, glossary drift, banned forms, leftover English, missing keys). Per-repo config in agents-info/translator/. Born EN→UK on starogram.com; the default model choice is a blind-judged measurement, recorded in references/model-choice.md, not a guess.",
+  "author": { "name": "alohamonius" },
+  "homepage": "https://github.com/how2doo-ai/agents",
+  "repository": "https://github.com/how2doo-ai/agents",
+  "license": "MIT",
+  "keywords": ["translation", "localization", "i18n", "review", "ukrainian", "glossary", "openrouter", "deepl", "skill"],
+  "skills": "./skills/"
+}

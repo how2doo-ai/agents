@@ -111,12 +111,21 @@ function glossaryParts(g) {
 
 const lc = (s) => s.toLocaleLowerCase();
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-// Ukrainian inflects and drops vowels (Овен → Овні, Телець → Тельці), so a
-// target word matches on a ~60% prefix (сумісність → сумісності also needs it).
+// Ukrainian inflects and its last-syllable vowel alternates or drops (Овен → Овні,
+// Телець → Тельця, сумісність → сумісності), so a target word matches on the
+// shorter of a ~60% prefix and the prefix before the last vowel.
+const VOWEL = /[аеєиіїоуюяaeiouy]/i;
 const stem = (w) => {
   const x = lc(w).replace(/[^\p{L}'’-]/gu, "");
-  return x.length <= 3 ? x : x.slice(0, Math.max(2, Math.min(x.length - 2, Math.ceil(x.length * 0.6))));
+  if (x.length <= 3) return x;
+  let lastV = -1;
+  for (let i = x.length - 1; i > 0; i--) if (VOWEL.test(x[i])) { lastV = i; break; }
+  const byLen = Math.min(x.length - 2, Math.ceil(x.length * 0.6));
+  return x.slice(0, Math.max(2, lastV > 0 ? Math.min(byLen, lastV) : byLen));
 };
+// A banned form is matched nearly exactly (all but its last letter) — a stem
+// would catch legitimate neighbours: знаходиться (banned) vs знаходить (finds).
+const bannedPrefix = (form) => (lc(form).length <= 5 ? lc(form) : lc(form).slice(0, -1));
 const hasWordStarting = (text, prefix) => new RegExp(`(^|[^\\p{L}])${esc(prefix)}`, "iu").test(text);
 
 // Glossary terms present in a source string. Longest first, and a matched span is
@@ -209,7 +218,7 @@ function checkPair(id, src, tgt, gl, opts = {}) {
   }
   for (const x of gl.banned) {
     for (const form of bannedForms(x.wrong)) {
-      if (hasWordStarting(tgt, lc(form).length <= 5 ? lc(form) : stem(form))) issues.push({ id, severity: "medium", kind: x.cat.toLowerCase().includes("russ") ? "russianism" : "banned", note: `"${form}" → ${x.right.split(" — ")[0]}` });
+      if (hasWordStarting(tgt, bannedPrefix(form))) issues.push({ id, severity: "medium", kind: x.cat.toLowerCase().includes("russ") ? "russianism" : "banned", note: `"${form}" → ${x.right.split(" — ")[0]}` });
     }
   }
   if (opts.cyrillicTarget) {

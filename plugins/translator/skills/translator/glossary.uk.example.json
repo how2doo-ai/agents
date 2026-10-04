@@ -7,6 +7,33 @@
       "voice_bot": "ти (informal) for bot and in-app chat",
       "free": "безкоштовно (never безплатно)",
       "product_name": "<Product>, never translated or transliterated"
+    },
+    "register_markers": {
+      "_note": "Used by `live` to flag formal and informal address on one screen.",
+      "formal": [
+        "ви",
+        "вам",
+        "вас",
+        "ваш",
+        "ваша",
+        "ваше",
+        "ваші",
+        "вашого",
+        "вашої",
+        "вашим"
+      ],
+      "informal": [
+        "ти",
+        "тобі",
+        "тебе",
+        "твій",
+        "твоя",
+        "твоє",
+        "твої",
+        "твого",
+        "твоєї",
+        "твоїм"
+      ]
     }
   },
   "product": {

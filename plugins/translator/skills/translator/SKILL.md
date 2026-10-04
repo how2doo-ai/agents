@@ -11,6 +11,7 @@ Read the mode from the argument; no mode = `translate` if given new text/files, 
 
 - `/translator translate <file|text> --to <lang>[,<lang>…]`
 - `/translator review <source> <target>` — or a directory/glob of pairs
+- `/translator review --live <url> [--source-url <url>]` — the rendered page, in a real browser
 - `/translator compare <file> [--models a,b,c]`
 - `/translator sync [<dir>]`
 - `/translator glossary` — propose additions from the latest reviews
@@ -54,6 +55,7 @@ node $T translate en/new.json --to all --out …/{lang}/…  # every target in c
 node $T translate en/new.json --to de --model deepl      # DeepL instead (DEEPL_API_KEY; free/Pro chosen from the key)
 node $T translate en/new.json --to de --model cheap      # a role name works anywhere a model id does
 node $T compare   en/new.json --models a,b,c             # several drafts + side-by-side JSON in .scratch/translator-compare/
+node $T live      .scratch/probe-uk.json --to uk --source .scratch/probe-en.json   # a rendered page (see review --live)
 node $T models                                           # live OpenRouter prices for the configured models; warns if one was retired
 ```
 
@@ -84,6 +86,19 @@ The original ask behind this skill: *is this copy good?*
 5. Recurring finding (same wrong term ≥ 2 times) → propose it as a glossary entry (`glossary` mode).
 
 For a directory: pair files by relative path (`en/x.json` ↔ `uk/x.json`), `check` all, `review` only those with check issues or that the human names — a reviewer pass over a thousand files costs real money; say the estimate first (`models` prints prices).
+
+### review --live (the rendered page)
+
+Files can't show what a reader sees. Strings hard-coded in components never reach the locale files. Ukrainian runs 10–50% longer than English and spills out of buttons. Formal and informal address get mixed across components. And `<html lang>` gets left at `en`. So drive a real browser through whichever browser MCP is connected: chrome-devtools (`navigate_page`, `resize_page`, `evaluate_script`) or Playwright (`browser_navigate`, `browser_resize`, `browser_evaluate`). With neither connected, say so and stop. Don't fall back to fetching HTML: a client-rendered page has no text in it.
+
+1. Navigate to the target-language URL and wait for the content to render (not a spinner).
+2. Run `scripts/live-probe.js` as the evaluate function. Pass the file's contents; it is read-only. Write the returned JSON byte-for-byte to `.scratch/translator-live-<lang>-<slug>.json` with your file-write tool. Use the MCP's own `filePath` option only if it accepts a path inside the workspace; chrome-devtools refuses paths outside its roots.
+3. Optional, and it catches the most: probe the **source-language** URL of the same page too. Then any string that is identical on both pages was never translated. Save that JSON alongside.
+4. Repeat at **375px wide**. Clipping is a mobile problem first. On chrome-devtools use `emulate` with viewport `375x812x2,mobile,touch`; `resize_page` stops at the window's minimum width (500px). On Playwright use `browser_resize`.
+5. `node $T live .scratch/translator-live-uk-<slug>.json --to uk [--source …-en-<slug>.json]` reports untranslated strings, banned forms, clipped text with a selector, register mixing (from `_meta.register_markers` in the glossary), and a wrong `<html lang>`. Register mixing only sees pronouns: a screen whose only informal address is in imperatives (Досліди vs Дослідіть) passes it, so read for that yourself.
+6. Report like `review`. Each issue names the selector or tag, so the fix can be found in the code. A hard-coded string is a code fix (move it into the locale files), not a translation fix.
+
+Don't take a screenshot unless the human asks, or a clipping verdict needs one to be believed. The probe's JSON is the evidence. When probing many pages, run them in a subagent so the page dumps stay out of the main context.
 
 ### compare
 

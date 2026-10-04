@@ -7,6 +7,7 @@
 //   translate.mjs compare   <file> --to de --models a,b,c [--out-dir <dir>]
 //   translate.mjs review    <source> <target> --to de [--model <id>] [--json]
 //   translate.mjs check     <source> <target> --to de [--json]   (no network, no cost)
+//   translate.mjs live      <probe.json> --to uk [--source <probe-en.json>] [--json]   (a rendered page, from scripts/live-probe.js)
 //   translate.mjs models    [--all]                              (live OpenRouter prices)
 //
 // Any language pair: --from/--to take BCP-47 codes (en, uk, de, pt-BR, zh-Hans…);
@@ -141,7 +142,7 @@ function glossaryParts(g) {
       else terms.push({ src: k, tgt: v, cat });
     }
   }
-  return { terms, banned, notes, rules: g?._meta?.rules || {} };
+  return { terms, banned, notes, rules: g?._meta?.rules || {}, register: g?._meta?.register_markers || null };
 }
 
 const lc = (s) => s.toLocaleLowerCase();
@@ -278,7 +279,9 @@ function latinShare(text) {
 function allowLatin(cfg, gl) {
   // Brand names and terms the glossary maps to themselves stay Latin on purpose.
   const self = gl.terms.filter((t) => /[A-Za-z]/.test(t.tgt)).flatMap((t) => t.tgt.match(/[A-Za-z][A-Za-z'-]+/g) || []);
-  return [...(cfg.allow_latin || []), ...self];
+  // The product's own name ("Starogram (starogram.com) — …" → Starogram) is never translated.
+  const product = (cfg.product || "").match(/^[\p{L}\d][\p{L}\d.'-]*/u)?.[0];
+  return [...(cfg.allow_latin || []), ...self, ...(product ? [product] : [])];
 }
 
 // ---------- prompts ----------
@@ -514,6 +517,55 @@ async function cmdReview(cfg, pos, opt) {
   else { console.log(`${pairs.length} pairs reviewed by ${model} ($${cost.toFixed(4)}) + deterministic checks: ${all.length} issue(s)`); printIssues(all); }
 }
 
+// A rendered page, as live-probe.js saw it: what no file-level check can see —
+// strings hard-coded outside the locale files, text that no longer fits its box,
+// formal and informal address mixed on one screen, a wrong <html lang>.
+async function cmdLive(cfg, pos, opt) {
+  const file = pos[0]; if (!file) throw new Error("usage: live <probe.json> --to <lang> [--source <probe-en.json>]");
+  const probe = JSON.parse(fs.readFileSync(file, "utf8"));
+  const to = targetsFrom(cfg, { ...opt, to: opt.to ?? (cfg.targets.length ? undefined : probe.lang) })[0];
+  const { gl } = pairContext(cfg, to);
+  const allow = new Set(allowLatin(cfg, gl).map(lc));
+  const src = opt.source ? new Set(JSON.parse(fs.readFileSync(opt.source, "utf8")).texts.map((x) => x.t)) : null;
+  const issues = [];
+  const where = (x) => (x.attr ? `${x.tag}[${x.attr}]` : x.tag);
+
+  if (probe.lang && lc(probe.lang).split("-")[0] !== lc(to).split("-")[0])
+    issues.push({ id: "html", severity: "medium", kind: "lang-attr", note: `<html lang="${probe.lang}"> on a ${to} page: screen readers, search engines and browser translate prompts read it` });
+
+  const targetIsLatin = latinShare(probe.texts.map((x) => x.t).join(" ")) >= 0.5;
+  for (const x of probe.texts) {
+    const words = x.t.match(/\p{L}[\p{L}'’-]*/gu) || [];
+    // Identical to a string on the source-language page → never translated. One
+    // word counts on a non-Latin page ("Accept" on uk); on a Latin-script target a
+    // lone shared word is usually legitimate (Email, Instagram), so it needs two.
+    const latinWords = words.filter((w) => /^[A-Za-z]/.test(w) && w.length >= 3 && !allow.has(lc(w)));
+    if (src?.has(x.t) && words.length >= (targetIsLatin ? 2 : 1) && !allow.has(lc(x.t)))
+      issues.push({ id: where(x), severity: "high", kind: "untranslated", note: `same as on the source page: "${x.t.slice(0, 100)}"` });
+    // On a non-Latin page, English words in a string — whole ("Open menu") or mixed
+    // ("Toggle Дослідити menu"). Capitalised Latin words inside native text are names
+    // ("Увійдіть через Google або Apple"), so a mixed string needs a lowercase one.
+    else if (!targetIsLatin && latinWords.length && (latinShare(x.t) >= 0.8 ? latinWords.length >= 2 || latinWords.some((w) => /^[a-z]/.test(w)) : latinWords.some((w) => /^[a-z]/.test(w))))
+      issues.push({ id: where(x), severity: latinShare(x.t) >= 0.8 ? "high" : "medium", kind: "untranslated", note: `${latinShare(x.t) >= 0.8 ? "" : "mixed: "}"${x.t.slice(0, 100)}"` });
+    for (const b of gl.banned) for (const form of bannedForms(b.wrong))
+      if (hasWordStarting(x.t, bannedPrefix(form)))
+        issues.push({ id: where(x), severity: "medium", kind: b.cat.toLowerCase().includes("russ") ? "russianism" : "banned", note: `"${form}" in "${x.t.slice(0, 80)}" → ${b.right.split(" — ")[0]}` });
+  }
+
+  // Formal vs informal address on one screen (markers come from the glossary's _meta.register_markers).
+  if (gl.register) {
+    const count = (list) => probe.texts.filter((x) => list.some((m) => new RegExp(`(^|[^\\p{L}])${esc(m)}([^\\p{L}]|$)`, "iu").test(x.t)));
+    const f = count(gl.register.formal || []), i = count(gl.register.informal || []);
+    if (f.length && i.length)
+      issues.push({ id: "page", severity: "medium", kind: "register-mix", note: `${f.length} string(s) formal, ${i.length} informal on one page — e.g. formal "${f[0].t.slice(0, 60)}" / informal "${i[0].t.slice(0, 60)}"` });
+  }
+  for (const c of probe.clipped || [])
+    issues.push({ id: c.sel, severity: "medium", kind: "clipped", note: `${c.how}: "${c.t.slice(0, 80)}"` });
+
+  if (opt.json) console.log(JSON.stringify({ url: probe.url, viewport: probe.viewport, to, texts: probe.texts.length, issues }, null, 2));
+  else { console.log(`${probe.url} @ ${probe.viewport} (${to}): ${probe.texts.length} visible strings, ${issues.length} issue(s)`); printIssues(issues); }
+}
+
 async function cmdModels(cfg, opt) {
   const res = await fetch(`${OPENROUTER}/models`);
   const { data } = await res.json();
@@ -528,7 +580,7 @@ async function cmdModels(cfg, opt) {
 const { pos, opt } = parseArgs(process.argv.slice(2));
 const cmd = pos.shift();
 const cfg = loadConfig(opt);
-const run = { translate: cmdTranslate, compare: cmdCompare, review: cmdReview, check: cmdCheck, models: (c, _p, o) => cmdModels(c, o) }[cmd];
+const run = { translate: cmdTranslate, compare: cmdCompare, review: cmdReview, check: cmdCheck, live: cmdLive, models: (c, _p, o) => cmdModels(c, o) }[cmd];
 if (!run) {
   console.error(fs.readFileSync(new URL(import.meta.url), "utf8").split("\n").slice(1, 18).join("\n").replace(/^\/\/ ?/gm, ""));
   process.exit(cmd ? 2 : 0);

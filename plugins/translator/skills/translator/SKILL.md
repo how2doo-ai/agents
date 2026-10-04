@@ -91,6 +91,8 @@ For a directory: pair files by relative path (`en/x.json` ↔ `uk/x.json`), `che
 
 Files can't show what a reader sees. Strings hard-coded in components never reach the locale files. Ukrainian runs 10–50% longer than English and spills out of buttons. Formal and informal address get mixed across components. And `<html lang>` gets left at `en`. So drive a real browser through whichever browser MCP is connected: chrome-devtools (`navigate_page`, `resize_page`, `evaluate_script`) or Playwright (`browser_navigate`, `browser_resize`, `browser_evaluate`). With neither connected, say so and stop. Don't fall back to fetching HTML: a client-rendered page has no text in it.
 
+**Whose browser this is.** chrome-devtools attaches to the human's own, visible Chrome. Every page you open shows up on their screen, mid-work, and `isolatedContext` separates cookies, not the screen. So prefer a headless browser (Playwright MCP in headless mode). If only chrome-devtools is available, **say so and get an OK before opening anything**, open as few pages as the check needs, and close them when done.
+
 1. Navigate to the target-language URL and wait for the content to render (not a spinner).
 2. Run `scripts/live-probe.js` as the evaluate function. Pass the file's contents; it is read-only. Write the returned JSON byte-for-byte to `.scratch/translator-live-<lang>-<slug>.json` with your file-write tool. Use the MCP's own `filePath` option only if it accepts a path inside the workspace; chrome-devtools refuses paths outside its roots.
 3. Optional, and it catches the most: probe the **source-language** URL of the same page too. Then any string that is identical on both pages was never translated. Save that JSON alongside.
@@ -102,6 +104,8 @@ Files can't show what a reader sees. Strings hard-coded in components never reac
    - **more than one hit** → duplication: the same sentence lives in two places, usually worded differently (starogram: `landing-sections.tsx:961` vs `lib/i18n/uk.ts:66`). Keep the locale key, delete the copy
    - **clipped** → propose a shorter target variant first. Change the layout only if no natural short form exists
 7. Report like `review`: each issue with page selector → `file:line` → proposed change, as a diff when asked to fix. A hard-coded string is never fixed by re-translating it.
+
+On a local dev server, ignore the framework's own overlay controls (Next.js: "Open Next.js Dev Tools", "Open issues overlay"). They aren't product copy.
 
 Don't take a screenshot unless the human asks, or a clipping verdict needs one to be believed. The probe's JSON is the evidence. When probing many pages, run them in a subagent so the page dumps stay out of the main context.
 

@@ -26,7 +26,7 @@ Look for `agents-info/translator/` at the repo root. It holds:
 | `style-guide.md` | register per surface (ви/ти), tone, edge cases |
 | `CHANGELOG.md` | one entry per run (below) |
 
-If the directory doesn't exist, **create it before translating anything**: copy `config.example.json` as `config.json`, fill `product`, `audience`, `layers` from what the repo actually contains (search for locale files, copy modules, `i18n`), and seed `glossary.json` with the product name, recurring domain terms and any existing house rules you find (a `SLANG.md`, voice rules, a FINDINGS entry about wording). Ask the human only for what the repo can't tell you (formal vs informal address, if unclear).
+If the directory doesn't exist, **create it before translating anything**: copy `config.example.json` as `config.json` and `glossary.example.json` as `glossary.json` (its banned lists are general Ukrainian; replace the `product` placeholders), copy `.env.example` as `.env` and make sure `agents-info/translator/.env` is gitignored. Then fill `product`, `audience`, `layers` from what the repo actually contains (search for locale files, copy modules, `i18n`), and seed `glossary.json` with the product name, recurring domain terms and any existing house rules you find (a `SLANG.md`, voice rules, a FINDINGS entry about wording). Ask the human only for what the repo can't tell you (formal vs informal address, if unclear).
 
 ## 1. Rules you never break
 

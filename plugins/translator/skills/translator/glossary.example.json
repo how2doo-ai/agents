@@ -1,0 +1,50 @@
+{
+  "_meta": {
+    "version": "1.0.0",
+    "description": "Seed for <repo>/agents-info/translator/glossary.json (EN→UK). The banned lists are general Ukrainian usage, the same for every product; the product categories are placeholders: replace them with this product's words.",
+    "rules": {
+      "voice_web": "ви (formal) for web pages, landing, SEO",
+      "voice_bot": "ти (informal) for bot and in-app chat",
+      "free": "безкоштовно (never безплатно)",
+      "product_name": "<Product>, never translated or transliterated"
+    }
+  },
+  "product": {
+    "<source term>": "<the one Ukrainian rendering this product uses>"
+  },
+  "uiTerms": {
+    "Sign in": "Увійти",
+    "Sign up": "Зареєструватися",
+    "Get started": "Почати",
+    "Settings": "Налаштування",
+    "Read more": "Дізнатися більше"
+  },
+  "bannedAnglicisms": {
+    "_note": "Borrowed English with a native Ukrainian equivalent. A product may un-ban one deliberately (e.g. a gaming audience that really says 'стрім'); remove it from its own copy of this file.",
+    "контент": "зміст / матеріали",
+    "фідбек": "відгук / зворотний зв'язок",
+    "інсайт": "розуміння / осяяння",
+    "патерни": "закономірності / тенденції",
+    "тайминг": "розклад / ритм / час",
+    "брифінг": "огляд / зведення",
+    "чек-ін": "перевірка / відмітка",
+    "драйв": "рушійна сила / натхнення",
+    "рефлексувати": "осмислювати / замислитися",
+    "фокус (концентрація)": "зосередженість / увага; 'фокус' is mainly a magic trick in Ukrainian"
+  },
+  "bannedRussianisms": {
+    "_note": "Russian-rooted forms with proper Ukrainian equivalents.",
+    "знаходиться / знаходяться": "перебуває / перебувають (for 'is located / is in a state')",
+    "слідуючий": "наступний",
+    "виключно": "винятково / лише",
+    "приймати участь": "брати участь",
+    "на протязі": "протягом",
+    "являється": "є",
+    "співпадати": "збігатися",
+    "любий (any)": "будь-який"
+  },
+  "spellingRules": {
+    "природний / природна": "no soft sign: never 'природній', 'природньою'",
+    "проєкт": "2019 orthography: проєкт, not проект"
+  }
+}

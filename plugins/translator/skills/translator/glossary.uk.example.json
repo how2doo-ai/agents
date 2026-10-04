@@ -1,7 +1,7 @@
 {
   "_meta": {
     "version": "1.0.0",
-    "description": "Seed for <repo>/agents-info/translator/glossary.json (EN→UK). The banned lists are general Ukrainian usage, the same for every product; the product categories are placeholders: replace them with this product's words.",
+    "description": "Seed for <repo>/agents-info/translator/glossary.uk.json (EN→UK). The banned lists are general Ukrainian usage, the same for every product; the product categories are placeholders: replace them with this product's words.",
     "rules": {
       "voice_web": "ви (formal) for web pages, landing, SEO",
       "voice_bot": "ти (informal) for bot and in-app chat",

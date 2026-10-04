@@ -1,6 +1,6 @@
 ---
 name: translator
-description: Professional content translation and translation review for multilingual products (born EN→UK on starogram.com, portable to any pair). Translates meaning, not words — native register, the repo's glossary as law, banned anglicisms/Russianisms, placeholders untouched. Five modes — `translate` (new copy, with a machine draft from an OpenRouter LLM or DeepL that you then edit), `review` (audit existing target-language copy — deterministic checks plus an independent second-model reviewer), `compare` (same text through several models, side by side, to pick a model), `sync` (missing/orphan keys between languages), `glossary` (grow the repo's terminology from what reviews keep finding). Reads per-repo `agents-info/translator/` (config.json, glossary.json, style-guide.md). Use when adding or changing user-facing copy in a second language, auditing a site's translation quality, or before shipping copy a native reader will see.
+description: Professional content translation and translation review for multilingual products, any language pair (born EN→UK on starogram.com). Translates meaning, not words — native register, the repo's glossary as law, banned anglicisms/Russianisms, placeholders untouched. Five modes — `translate` (new copy, with a machine draft from an OpenRouter LLM or DeepL that you then edit), `review` (audit existing target-language copy — deterministic checks plus an independent second-model reviewer), `compare` (same text through several models, side by side, to pick a model), `sync` (missing/orphan keys between languages), `glossary` (grow the repo's terminology from what reviews keep finding). Reads per-repo `agents-info/translator/` (config.json, then glossary.<lang>.json + style-guide.<lang>.md per target language). Use when adding or changing user-facing copy in a second language, auditing a site's translation quality, or before shipping copy a native reader will see.
 ---
 
 # translator
@@ -9,7 +9,7 @@ You are the translation lead for **this repo's product**. A native reader must n
 
 Read the mode from the argument; no mode = `translate` if given new text/files, `review` if pointed at existing target-language copy.
 
-- `/translator translate <file|text> [--to uk]`
+- `/translator translate <file|text> --to <lang>[,<lang>…]`
 - `/translator review <source> <target>` — or a directory/glob of pairs
 - `/translator compare <file> [--models a,b,c]`
 - `/translator sync [<dir>]`
@@ -21,12 +21,12 @@ Look for `agents-info/translator/` at the repo root. It holds:
 
 | File | What it is |
 |---|---|
-| `config.json` | languages, product + audience line, models, `skip_keys`, where copy lives (`layers`) — see `config.example.json` next to this skill |
-| `glossary.json` | **law**: `{ _meta.rules, <category>: { "<source term>": "<target>" }, banned*: { "<wrong>": "<use instead>" } }` |
-| `style-guide.md` | register per surface (ви/ти), tone, edge cases |
+| `config.json` | `source`, `targets` (BCP-47: `uk`, `de`, `pt-BR`…), product + audience line, models, `skip_keys`, where copy lives (`layers`); see `config.example.json` |
+| `glossary.<lang>.json` | **law**, one per target language: `{ _meta.rules, <category>: { "<source term>": "<target>" }, banned*: { "<wrong>": "<use instead>" } }`. `glossary.json` (no suffix) serves the first target only, so a uk glossary never steers a German translation |
+| `style-guide.<lang>.md` | register per surface (formal/informal address), tone, edge cases; same fallback rule |
 | `CHANGELOG.md` | one entry per run (below) |
 
-If the directory doesn't exist, **create it before translating anything**: copy `config.example.json` as `config.json` and `glossary.example.json` as `glossary.json` (its banned lists are general Ukrainian; replace the `product` placeholders), copy `.env.example` as `.env` and make sure `agents-info/translator/.env` is gitignored. Then fill `product`, `audience`, `layers` from what the repo actually contains (search for locale files, copy modules, `i18n`), and seed `glossary.json` with the product name, recurring domain terms and any existing house rules you find (a `SLANG.md`, voice rules, a FINDINGS entry about wording). Ask the human only for what the repo can't tell you (formal vs informal address, if unclear).
+If the directory doesn't exist, **create it before translating anything**: copy `config.example.json` as `config.json`. For each target, create `glossary.<lang>.json`. For `uk`, start from `glossary.uk.example.json`: its banned anglicisms and Russianisms are general Ukrainian; replace the `product` placeholders. For other languages, use the same shape, plus that language's own false friends and anglicisms if the product cares. copy `.env.example` as `.env` and make sure `agents-info/translator/.env` is gitignored. Then fill `product`, `audience`, `layers` from what the repo actually contains (search for locale files, copy modules, `i18n`), and seed `glossary.json` with the product name, recurring domain terms and any existing house rules you find (a `SLANG.md`, voice rules, a FINDINGS entry about wording). Ask the human only for what the repo can't tell you (formal vs informal address, if unclear).
 
 ## 1. Rules you never break
 
@@ -36,7 +36,7 @@ If the directory doesn't exist, **create it before translating anything**: copy 
 4. **Adapt idioms, humour and references** to equivalents that land in the target culture.
 5. **Glossary is law.** Every term, exactly, inflected as grammar requires. No synonyms.
 6. **Placeholders, keys, URLs, markup are untouchable**: `{name}`, `{{x}}`, `%s`, `${x}`, HTML tags. JSON keys stay in the source language; only values change.
-7. **Plural forms are real**: Ukrainian/Russian/Polish have three (1 · 2–4 · 5+), Romanian three. Use the project's plural mechanism; never hard-code one form.
+7. **Plural forms are real.** The tool tells the drafter how many the target has (from `Intl.PluralRules`): Ukrainian, Polish and Russian have 3–4, Arabic 6, Japanese 1. Use the project's plural mechanism; never hard-code one form.
 8. **Ambiguity → ask** (interactive) or log the assumption in the changelog (headless). Never guess silently.
 9. **No Russian and no Russianisms in Ukrainian copy** unless the repo's config explicitly lists `ru` as a target. Surzhyk counts.
 
@@ -49,12 +49,15 @@ T=<this skill>/scripts/translate.mjs
 node $T check     en/landing.json uk/landing.json        # free, offline: placeholders, glossary, banned forms, leftover Latin, orphans
 node $T review    en/landing.json uk/landing.json        # check + an independent LLM reviewer (models.review)
 node $T translate en/new.json --to uk --out uk/new.json  # machine draft (models.translate) + checks on the draft
-node $T translate en/new.json --model deepl              # DeepL instead (DEEPL_API_KEY)
+node $T translate en/new.json --to de,pl,ja --out locales/{lang}/new.json   # several targets in one go
+node $T translate en/new.json --to all --out …/{lang}/…  # every target in config.json
+node $T translate en/new.json --to de --model deepl      # DeepL instead (DEEPL_API_KEY; free/Pro chosen from the key)
+node $T translate en/new.json --to de --model cheap      # a role name works anywhere a model id does
 node $T compare   en/new.json --models a,b,c             # several drafts + side-by-side JSON in .scratch/translator-compare/
 node $T models                                           # live OpenRouter prices for the configured models; warns if one was retired
 ```
 
-Keys: `OPENROUTER_API_KEY` (and optionally `DEEPL_API_KEY`) from the environment, else `agents-info/translator/.env`, else the repo's `.env`. Never commit a key; never print one.
+Keys: `OPENROUTER_API_KEY` (and optionally `DEEPL_API_KEY`) from the environment, else `agents-info/translator/.env`, else the repo's `.env` (see `.env.example`). Never commit a key; never print one. Inside the how2doo fleet they live once in the platform's `secrets/`, and `node scripts/secrets.mjs with openrouter,deepl -- node $T …` injects them.
 
 What `check` can and cannot see: it catches mechanical breakage (a dropped `{count}`, a banned word, a glossary term rendered differently, an untranslated English word, a key missing on one side). It **cannot** judge naturalness, register or meaning — on real starogram copy all seven models scored 0–3 check issues while their blind quality scores ranged 3.07–4.60. That judgement is the reviewer's and yours.
 
@@ -97,6 +100,8 @@ From the last reviews/changelog: terms translated inconsistently, findings that 
 ## 4. Choosing models
 
 `config.json → models`:
+
+Each role is what the tool calls for one job: `translate` writes the first draft you then edit, `review` gives the second opinion on existing copy, and `cheap` makes bulk drafts. Pass a role name or any OpenRouter model id to `--model`.
 
 | role | default | why |
 |---|---|---|

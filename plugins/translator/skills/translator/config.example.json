@@ -1,6 +1,9 @@
 {
   "source": "en",
-  "targets": ["uk"],
+  "targets": [
+    "uk",
+    "de"
+  ],
   "product": "<Product> (<domain>) — one line on what it is",
   "audience": "<who reads it; formal «ви» on web, informal «ти» in the bot — or whatever the style guide says>",
   "models": {
@@ -9,10 +12,28 @@
     "cheap": "tencent/hy-mt2-30b-a3b"
   },
   "layers": [
-    { "name": "web strings", "source": "apps/web/src/copy/en.ts", "target": "apps/web/src/copy/uk.ts" },
-    { "name": "content", "source": "packages/content/en/", "target": "packages/content/uk/" }
+    {
+      "name": "web strings",
+      "source": "apps/web/src/locales/en.json",
+      "target": "apps/web/src/locales/{lang}.json"
+    },
+    {
+      "name": "content",
+      "source": "packages/content/en/",
+      "target": "packages/content/{lang}/"
+    }
   ],
-  "skip_keys": ["id", "slug", "emoji", "icon", "href", "url", "src", "key", "type"],
+  "skip_keys": [
+    "id",
+    "slug",
+    "emoji",
+    "icon",
+    "href",
+    "url",
+    "src",
+    "key",
+    "type"
+  ],
   "allow_latin": [],
   "glossary_check_skip": [],
   "validate": null

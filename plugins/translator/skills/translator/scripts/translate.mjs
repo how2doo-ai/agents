@@ -3,18 +3,21 @@
 // Zero dependencies (Node >= 18: global fetch). The model is a DRAFTER and a
 // SECOND OPINION; the agent running the skill owns the final text.
 //
-//   translate.mjs translate <file> [--to uk] [--from en] [--model <id>|deepl] [--out <file>]
-//   translate.mjs compare   <file> --models a,b,c [--to uk] [--out-dir <dir>]
-//   translate.mjs review    <source> <target> [--model <id>] [--to uk] [--json]
-//   translate.mjs check     <source> <target> [--json]        (no network, no cost)
-//   translate.mjs models    [--all]                           (live OpenRouter prices)
+//   translate.mjs translate <file> --to de[,pl,…|all] [--from en] [--model <id>|deepl] [--out <path with {lang}>]
+//   translate.mjs compare   <file> --to de --models a,b,c [--out-dir <dir>]
+//   translate.mjs review    <source> <target> --to de [--model <id>] [--json]
+//   translate.mjs check     <source> <target> --to de [--json]   (no network, no cost)
+//   translate.mjs models    [--all]                              (live OpenRouter prices)
 //
-// <file> is .json (string leaves are translated, keys and skip_keys kept) or
-// plain text / markdown (one unit per paragraph).
+// Any language pair: --from/--to take BCP-47 codes (en, uk, de, pt-BR, zh-Hans…);
+// --to defaults to config.json `targets`. <file> is .json (string leaves are
+// translated, keys and skip_keys kept) or plain text / markdown (one unit per paragraph).
 //
-// Per-repo config: agents-info/translator/{config.json,glossary.json,style-guide.md},
-// found by walking up from the cwd. Keys: OPENROUTER_API_KEY / DEEPL_API_KEY from
-// the environment, else agents-info/translator/.env, else <repo>/.env.
+// Per-repo config: agents-info/translator/config.json, plus per target language
+// glossary.<to>.json and style-guide.<to>.md (glossary.json / style-guide.md
+// serve the first target). Found by walking up from the cwd. Keys:
+// OPENROUTER_API_KEY / DEEPL_API_KEY from the environment, else
+// agents-info/translator/.env, else <repo>/.env.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -22,17 +25,25 @@ import path from "node:path";
 const OPENROUTER = "https://openrouter.ai/api/v1";
 const DEFAULTS = {
   source: "en",
-  targets: ["uk"],
+  targets: [], // the repo's config.json names them; otherwise pass --to
   models: {
+    // writes the first draft that the agent then edits (`translate`, the default `compare` set)
     translate: "google/gemini-3.8-flash",
+    // second opinion on existing copy (`review`), a different family from the drafter
     review: "anthropic/claude-sonnet-5",
+    // dedicated MT model, ~20x cheaper: bulk drafts you will edit heavily (`--model cheap`)
     cheap: "tencent/hy-mt2-30b-a3b",
   },
   skip_keys: ["id", "slug", "emoji", "icon", "href", "url", "src", "key", "type"],
   batch_chars: 6000,
-  deepl_url: "https://api-free.deepl.com/v2/translate",
+  deepl_url: null, // null = chosen from the key: ':fx' keys are free tier (api-free), others Pro
 };
-const LANG = { en: "English", uk: "Ukrainian", ru: "Russian", ro: "Romanian", pl: "Polish", de: "German", es: "Spanish", fr: "French" };
+const NAMES = new Intl.DisplayNames(["en"], { type: "language" });
+const langName = (code) => { try { return NAMES.of(code) || code; } catch { return code; } };
+// DeepL wants a region for some targets (EN-US/EN-GB, PT-BR/PT-PT, ZH-HANS) and none on the source.
+const DEEPL_TARGET = { en: "EN-US", pt: "PT-BR", zh: "ZH-HANS" };
+const deeplTarget = (to) => (to.includes("-") ? to : DEEPL_TARGET[to.toLowerCase()] || to).toUpperCase();
+const deeplSource = (from) => from.split("-")[0].toUpperCase();
 
 // ---------- args / config ----------
 
@@ -77,10 +88,6 @@ function loadConfig(opt) {
   const user = cfgFile && fs.existsSync(cfgFile) ? JSON.parse(fs.readFileSync(cfgFile, "utf8")) : {};
   const cfg = { ...DEFAULTS, ...user, models: { ...DEFAULTS.models, ...(user.models || {}) } };
   cfg.info = info;
-  const glossaryFile = info && path.join(info, user.glossary || "glossary.json");
-  cfg.glossary = glossaryFile && fs.existsSync(glossaryFile) ? JSON.parse(fs.readFileSync(glossaryFile, "utf8")) : {};
-  const styleFile = info && path.join(info, user.style || "style-guide.md");
-  cfg.style = styleFile && fs.existsSync(styleFile) ? fs.readFileSync(styleFile, "utf8") : "";
   const env = {
     ...readEnvFile(info ? path.join(path.dirname(path.dirname(info)), ".env") : ""),
     ...readEnvFile(info ? path.join(info, ".env") : ""),
@@ -89,6 +96,34 @@ function loadConfig(opt) {
   cfg.keys = { openrouter: env.OPENROUTER_API_KEY, deepl: env.DEEPL_API_KEY };
   return cfg;
 }
+
+// The glossary and style guide are per target language: glossary.<to>.json, else
+// glossary.json for the first configured target only. A uk glossary must never
+// steer a German translation.
+function pairContext(cfg, to) {
+  const pick = (base, ext) => {
+    if (!cfg.info) return null;
+    const specific = path.join(cfg.info, `${base}.${to}.${ext}`);
+    if (fs.existsSync(specific)) return specific;
+    const generic = path.join(cfg.info, `${base}.${ext}`);
+    return fs.existsSync(generic) && (cfg.targets[0] ?? to) === to ? generic : null;
+  };
+  const g = pick("glossary", "json"), st = pick("style-guide", "md");
+  if (!g) console.error(`note: no glossary for '${to}' (agents-info/translator/glossary.${to}.json); translating without one`);
+  return {
+    gl: glossaryParts(g ? JSON.parse(fs.readFileSync(g, "utf8")) : {}),
+    style: st ? fs.readFileSync(st, "utf8") : "",
+  };
+}
+
+function targetsFrom(cfg, opt) {
+  const raw = opt.to === "all" || opt.to === undefined || opt.to === true ? cfg.targets.join(",") : String(opt.to);
+  const list = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  if (!list.length) throw new Error("no target language: pass --to <code> (e.g. --to de) or set `targets` in agents-info/translator/config.json");
+  return list;
+}
+
+const modelFor = (cfg, m) => (m && cfg.models[m] ? cfg.models[m] : m);
 
 // ---------- glossary ----------
 
@@ -126,6 +161,7 @@ const stem = (w) => {
 // A banned form is matched nearly exactly (all but its last letter) — a stem
 // would catch legitimate neighbours: знаходиться (banned) vs знаходить (finds).
 const bannedPrefix = (form) => (lc(form).length <= 5 ? lc(form) : lc(form).slice(0, -1));
+const NO_SPACES = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}]/u;
 const hasWordStarting = (text, prefix) => new RegExp(`(^|[^\\p{L}])${esc(prefix)}`, "iu").test(text);
 
 // Glossary terms present in a source string. Longest first, and a matched span is
@@ -213,7 +249,8 @@ function checkPair(id, src, tgt, gl, opts = {}) {
     issues.push({ id, severity: "high", kind: "placeholder", note: `source ${JSON.stringify(a)} ≠ target ${JSON.stringify(b)}` });
   for (const x of termsIn(src, gl.terms, opts.skipCats)) {
     const want = x.tgt.split("/").map((w) => w.replace(/\(.*?\)/g, "").trim()).filter(Boolean);
-    const hit = want.some((w) => w.split(/\s+/).every((word) => hasWordStarting(tgt, stem(word))));
+    // Han/kana/Thai have no word boundaries or inflection to stem: plain containment.
+    const hit = want.some((w) => (NO_SPACES.test(w) ? tgt.includes(w) : w.split(/\s+/).every((word) => hasWordStarting(tgt, stem(word)))));
     if (!hit) issues.push({ id, severity: "medium", kind: "glossary", note: `"${x.src}" should be "${x.tgt}"` });
   }
   for (const x of gl.banned) {
@@ -221,7 +258,9 @@ function checkPair(id, src, tgt, gl, opts = {}) {
       if (hasWordStarting(tgt, bannedPrefix(form))) issues.push({ id, severity: "medium", kind: x.cat.toLowerCase().includes("russ") ? "russianism" : "banned", note: `"${form}" → ${x.right.split(" — ")[0]}` });
     }
   }
-  if (opts.cyrillicTarget) {
+  // Only meaningful when the target is written in a non-Latin script: a Latin
+  // word copied from the source then is almost certainly untranslated.
+  if (latinShare(tgt) < 0.5) {
     const stripped = tgt.replace(PLACEHOLDER, "").replace(/https?:\/\/\S+/g, "");
     const allow = new Set((opts.allowLatin || []).map(lc));
     // Lowercase only: a capitalised Latin word is a proper name (Google, the product) and stays.
@@ -229,6 +268,11 @@ function checkPair(id, src, tgt, gl, opts = {}) {
     if (latin.length) issues.push({ id, severity: "low", kind: "untranslated", note: `Latin words left: ${[...new Set(latin)].join(", ")}` });
   }
   return issues;
+}
+
+function latinShare(text) {
+  const letters = text.replace(PLACEHOLDER, "").match(/\p{L}/gu) || [];
+  return letters.length ? letters.filter((c) => /[A-Za-z\u00C0-\u024F]/.test(c)).length / letters.length : 1;
 }
 
 function allowLatin(cfg, gl) {
@@ -239,15 +283,23 @@ function allowLatin(cfg, gl) {
 
 // ---------- prompts ----------
 
-function systemPrompt(cfg, gl, from, to, unitsText) {
+function pluralCategories(to) {
+  try { return new Intl.PluralRules(to).resolvedOptions().pluralCategories; } catch { return []; }
+}
+
+function systemPrompt(cfg, { gl, style }, from, to, unitsText) {
   const used = termsIn(unitsText, gl.terms);
+  const F = langName(from), T = langName(to);
+  const plurals = pluralCategories(to);
   const lines = [
-    `You are a professional ${LANG[from] || from} → ${LANG[to] || to} translator and native ${LANG[to] || to} copy editor.`,
-    `Translate meaning, not words: natural, fluent, native-sounding ${LANG[to] || to}. No calques. Keep the author's tone and register.`,
+    `You are a professional ${F} → ${T} translator and native ${T} copy editor.`,
+    `Translate meaning, not words: natural, fluent, native-sounding ${T}. No calques. Keep the author's tone and register.`,
     `Never alter placeholders ({name}, {{x}}, %s, \${x}, HTML tags) or URLs. Keep emoji and punctuation style.`,
     // The two errors every model made in the 2026-10-03 blind compare (references/model-choice.md):
-    `A numeric placeholder that governs a noun ({days} днів) must read correctly for 1, 2–4 and 5+: use the project's plural syntax if the source has one, otherwise rephrase so the number stands alone ("Залишилось днів: {days}").`,
-    `A placeholder that will be filled with a noun ({sign}, {name}) arrives in the nominative: build the sentence so it stays grammatical ("знак: {sign}", not "у {sign}").`,
+    plurals.length > 1
+      ? `${T} has ${plurals.length} plural forms (${plurals.join(", ")}). A numeric placeholder that governs a noun ({days} …) must read correctly for every one: use the project's plural syntax if the source has one, otherwise rephrase so the number stands alone ("Days left: {days}").`
+      : `${T} does not inflect nouns for number: keep counters natural for it.`,
+    `If ${T} inflects nouns for case, a placeholder filled with a noun ({sign}, {name}) arrives in its base form: build the sentence so it stays grammatical without inflecting it ("sign: {sign}").`,
   ];
   if (cfg.product) lines.push(`Product: ${cfg.product}`);
   if (cfg.audience) lines.push(`Audience: ${cfg.audience}`);
@@ -255,7 +307,7 @@ function systemPrompt(cfg, gl, from, to, unitsText) {
   if (used.length) lines.push("", "GLOSSARY (mandatory, exact; inflect as grammar requires):", ...used.map((t) => `- ${t.src} → ${t.tgt}`));
   if (gl.banned.length) lines.push("", "NEVER USE these forms (use the alternative):", ...gl.banned.map((b) => `- ${b.wrong} → ${b.right.split(" — ")[0]}`));
   if (gl.notes.length) lines.push("", "NOTES:", ...gl.notes.slice(0, 40).map((n) => `- ${n}`));
-  if (cfg.style) lines.push("", "STYLE GUIDE:", cfg.style.slice(0, 12000));
+  if (style) lines.push("", "STYLE GUIDE:", style.slice(0, 12000));
   return lines.join("\n");
 }
 
@@ -292,17 +344,17 @@ function parseJsonLoose(s) {
   throw new Error("model did not return JSON");
 }
 
-async function translateBatchLLM(cfg, gl, model, batch, from, to) {
+async function translateBatchLLM(cfg, ctx, model, batch, from, to) {
   const payload = Object.fromEntries(batch.map((u) => [u.id, u.text]));
-  const sys = systemPrompt(cfg, gl, from, to, batch.map((u) => u.text).join("\n"));
-  const user = `Translate every value of this JSON object into ${LANG[to] || to}. Return ONLY a JSON object with exactly the same keys.\n\n${JSON.stringify(payload, null, 1)}`;
+  const sys = systemPrompt(cfg, ctx, from, to, batch.map((u) => u.text).join("\n"));
+  const user = `Translate every value of this JSON object into ${langName(to)}. Return ONLY a JSON object with exactly the same keys.\n\n${JSON.stringify(payload, null, 1)}`;
   const r = await openrouter(cfg, model, [{ role: "system", content: sys }, { role: "user", content: user }]);
   let obj;
   try { obj = parseJsonLoose(r.content); } catch {
     // Small MT-specialised models can ignore the JSON envelope: fall back to one unit per call.
     const out = []; let cost = r.cost;
     for (const u of batch) {
-      const one = await openrouter(cfg, model, [{ role: "system", content: sys }, { role: "user", content: `Translate into ${LANG[to] || to}. Output only the translation.\n\n${u.text}` }], { json: false });
+      const one = await openrouter(cfg, model, [{ role: "system", content: sys }, { role: "user", content: `Translate into ${langName(to)}. Output only the translation.\n\n${u.text}` }], { json: false });
       out.push({ id: u.id, text: one.content.trim() }); cost += one.cost;
     }
     return { out, cost };
@@ -312,10 +364,11 @@ async function translateBatchLLM(cfg, gl, model, batch, from, to) {
 
 async function translateBatchDeepL(cfg, batch, from, to) {
   if (!cfg.keys.deepl) throw new Error("DEEPL_API_KEY not set");
-  const res = await fetch(cfg.deepl_url, {
+  const url = cfg.deepl_url || (cfg.keys.deepl.endsWith(":fx") ? "https://api-free.deepl.com/v2/translate" : "https://api.deepl.com/v2/translate");
+  const res = await fetch(url, {
     method: "POST",
     headers: { Authorization: `DeepL-Auth-Key ${cfg.keys.deepl}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ text: batch.map((u) => u.text), source_lang: from.toUpperCase(), target_lang: to.toUpperCase() }),
+    body: JSON.stringify({ text: batch.map((u) => u.text), source_lang: deeplSource(from), target_lang: deeplTarget(to) }),
   });
   if (!res.ok) throw new Error(`deepl: HTTP ${res.status} ${(await res.text()).slice(0, 300)}`);
   const j = await res.json();
@@ -324,16 +377,16 @@ async function translateBatchDeepL(cfg, batch, from, to) {
 
 async function runTranslate(cfg, file, model, from, to) {
   const doc = collectUnits(file, cfg);
-  const gl = glossaryParts(cfg.glossary);
+  const ctx = pairContext(cfg, to), gl = ctx.gl;
   const maxChars = model.startsWith("tencent/hy-mt") ? Math.min(cfg.batch_chars, 2500) : cfg.batch_chars;
   const out = []; let cost = 0;
   const t0 = Date.now();
   for (const b of batches(doc.units, model === "deepl" ? 1500 : maxChars)) {
-    const r = model === "deepl" ? await translateBatchDeepL(cfg, b, from, to) : await translateBatchLLM(cfg, gl, model, b, from, to);
+    const r = model === "deepl" ? await translateBatchDeepL(cfg, b, from, to) : await translateBatchLLM(cfg, ctx, model, b, from, to);
     out.push(...r.out); cost += r.cost;
   }
   const byId = new Map(out.map((u) => [u.id, u.text]));
-  const opts = { cyrillicTarget: ["uk", "ru", "bg", "sr"].includes(to), allowLatin: allowLatin(cfg, gl), skipCats: cfg.glossary_check_skip || [] };
+  const opts = { allowLatin: allowLatin(cfg, gl), skipCats: cfg.glossary_check_skip || [] };
   const issues = doc.units.flatMap((u) => checkPair(u.id, u.text, byId.get(u.id), gl, opts));
   return { doc, out, cost, issues, ms: Date.now() - t0 };
 }
@@ -347,20 +400,28 @@ function printIssues(issues) {
 }
 
 async function cmdTranslate(cfg, pos, opt) {
-  const file = pos[0]; if (!file) throw new Error("usage: translate <file>");
-  const from = opt.from || cfg.source, to = opt.to || cfg.targets[0];
-  const model = opt.model || cfg.models.translate;
-  const r = await runTranslate(cfg, file, model, from, to);
-  const text = writeUnits(r.doc, r.out);
-  if (opt.out) fs.writeFileSync(opt.out, text); else process.stdout.write(text);
-  console.error(`${model}: ${r.doc.units.length} units, $${r.cost.toFixed(4)}, ${(r.ms / 1000).toFixed(1)}s, ${r.issues.length} check issue(s)`);
-  if (r.issues.length) { console.error("checks:"); const log = console.log; console.log = console.error; printIssues(r.issues); console.log = log; }
+  const file = pos[0]; if (!file) throw new Error("usage: translate <file> --to <lang>");
+  const from = opt.from || cfg.source, targets = targetsFrom(cfg, opt);
+  const model = modelFor(cfg, opt.model) || cfg.models.translate;
+  if (targets.length > 1 && !(typeof opt.out === "string" && opt.out.includes("{lang}")))
+    throw new Error(`${targets.length} targets: pass --out with a {lang} slot, e.g. --out locales/{lang}/home.json`);
+  for (const to of targets) {
+    const r = await runTranslate(cfg, file, model, from, to);
+    const text = writeUnits(r.doc, r.out);
+    if (opt.out) {
+      const out = String(opt.out).replaceAll("{lang}", to);
+      fs.mkdirSync(path.dirname(out), { recursive: true });
+      fs.writeFileSync(out, text);
+    } else process.stdout.write(text);
+    console.error(`${from}→${to} ${model}: ${r.doc.units.length} units, $${r.cost.toFixed(4)}, ${(r.ms / 1000).toFixed(1)}s, ${r.issues.length} check issue(s)`);
+    if (r.issues.length) { console.error("checks:"); const log = console.log; console.log = console.error; printIssues(r.issues); console.log = log; }
+  }
 }
 
 async function cmdCompare(cfg, pos, opt) {
-  const file = pos[0]; if (!file) throw new Error("usage: compare <file> --models a,b");
-  const from = opt.from || cfg.source, to = opt.to || cfg.targets[0];
-  const models = String(opt.models || [cfg.models.translate, cfg.models.cheap].join(",")).split(",").map((s) => s.trim()).filter(Boolean);
+  const file = pos[0]; if (!file) throw new Error("usage: compare <file> --to <lang> --models a,b");
+  const from = opt.from || cfg.source, to = targetsFrom(cfg, opt)[0];
+  const models = String(opt.models || [cfg.models.translate, cfg.models.cheap].join(",")).split(",").map((s) => modelFor(cfg, s.trim())).filter(Boolean);
   const outDir = opt["out-dir"] || ".scratch/translator-compare";
   fs.mkdirSync(outDir, { recursive: true });
   const runs = await Promise.all(models.map(async (m) => {
@@ -388,11 +449,11 @@ async function cmdCompare(cfg, pos, opt) {
 
 async function cmdCheck(cfg, pos, opt, { quiet } = {}) {
   const [src, tgt] = pos; if (!src || !tgt) throw new Error("usage: check <source> <target>");
-  const to = opt.to || cfg.targets[0];
-  const gl = glossaryParts(cfg.glossary);
+  const to = targetsFrom(cfg, opt)[0];
+  const ctx = pairContext(cfg, to), gl = ctx.gl;
   const a = collectUnits(src, cfg), b = collectUnits(tgt, cfg);
   const tmap = new Map(b.units.map((u) => [u.id, u.text]));
-  const opts = { cyrillicTarget: ["uk", "ru", "bg", "sr"].includes(to), allowLatin: allowLatin(cfg, gl), skipCats: cfg.glossary_check_skip || [] };
+  const opts = { allowLatin: allowLatin(cfg, gl), skipCats: cfg.glossary_check_skip || [] };
   const issues = a.units.flatMap((u) => checkPair(u.id, u.text, tmap.get(u.id), gl, opts));
   const srcIds = new Set(a.units.map((u) => u.id));
   for (const u of b.units) if (!srcIds.has(u.id)) issues.push({ id: u.id, severity: "low", kind: "orphan", note: "key not in source" });
@@ -400,21 +461,21 @@ async function cmdCheck(cfg, pos, opt, { quiet } = {}) {
     if (opt.json) console.log(JSON.stringify(issues, null, 2));
     else { console.log(`${a.units.length} units, ${issues.length} issue(s)`); printIssues(issues); }
   }
-  return { a, tmap, issues, gl, to };
+  return { a, tmap, issues, ctx, to };
 }
 
 async function cmdReview(cfg, pos, opt) {
-  const { a, tmap, issues: det, gl, to } = await cmdCheck(cfg, pos, opt, { quiet: true });
+  const { a, tmap, issues: det, ctx, to } = await cmdCheck(cfg, pos, opt, { quiet: true });
   const from = opt.from || cfg.source;
-  const model = opt.model || cfg.models.review;
+  const model = modelFor(cfg, opt.model) || cfg.models.review;
   const pairs = a.units.filter((u) => tmap.has(u.id)).map((u) => ({ id: u.id, text: u.text, target: tmap.get(u.id) }));
   const kinds = "meaning|glossary|register|calque|anglicism|russianism|grammar|spelling|untranslated|tone|placeholder";
   let llm = [], cost = 0;
   for (const b of batches(pairs.map((p) => ({ ...p, text: p.text + p.target })), cfg.batch_chars)) {
-    const sys = systemPrompt(cfg, gl, from, to, b.map((u) => u.text).join("\n")).replace(/^You are a professional .*$/m,
-      `You are a strict native ${LANG[to] || to} reviewer of ${LANG[from] || from} → ${LANG[to] || to} translations.`);
+    const sys = systemPrompt(cfg, ctx, from, to, b.map((u) => u.text).join("\n")).replace(/^You are a professional .*$/m,
+      `You are a strict native ${langName(to)} reviewer of ${langName(from)} → ${langName(to)} translations.`);
     const items = b.map((u) => ({ id: u.id, source: pairs.find((p) => p.id === u.id).text, target: pairs.find((p) => p.id === u.id).target }));
-    const user = `Review each target against its source. Report ONLY real problems a native editor would fix; an acceptable translation gets no entry.\nReturn JSON: {"issues":[{"id":"…","severity":"high|medium|low","kind":"${kinds}","note":"what is wrong (short, in English)","suggestion":"the corrected ${LANG[to] || to} text"}]}\n\n${JSON.stringify(items, null, 1)}`;
+    const user = `Review each target against its source. Report ONLY real problems a native editor would fix; an acceptable translation gets no entry.\nReturn JSON: {"issues":[{"id":"…","severity":"high|medium|low","kind":"${kinds}","note":"what is wrong (short, in English)","suggestion":"the corrected ${langName(to)} text"}]}\n\n${JSON.stringify(items, null, 1)}`;
     const r = await openrouter(cfg, model, [{ role: "system", content: sys }, { role: "user", content: user }]);
     cost += r.cost;
     try { llm.push(...(parseJsonLoose(r.content).issues || []).map((i) => ({ ...i, by: model }))); }

@@ -96,7 +96,12 @@ Files can't show what a reader sees. Strings hard-coded in components never reac
 3. Optional, and it catches the most: probe the **source-language** URL of the same page too. Then any string that is identical on both pages was never translated. Save that JSON alongside.
 4. Repeat at **375px wide**. Clipping is a mobile problem first. On chrome-devtools use `emulate` with viewport `375x812x2,mobile,touch`; `resize_page` stops at the window's minimum width (500px). On Playwright use `browser_resize`.
 5. `node $T live .scratch/translator-live-uk-<slug>.json --to uk [--source …-en-<slug>.json]` reports untranslated strings, banned forms, clipped text with a selector, register mixing (from `_meta.register_markers` in the glossary), and a wrong `<html lang>`. Register mixing only sees pronouns: a screen whose only informal address is in imperatives (Досліди vs Дослідіть) passes it, so read for that yourself.
-6. Report like `review`. Each issue names the selector or tag, so the fix can be found in the code. A hard-coded string is a code fix (move it into the locale files), not a translation fix.
+6. **Trace every issue to its source** before proposing anything. `git grep -n -F "<exact visible text>"` first. If nothing matches, the string is assembled (`` `Toggle ${label} menu` ``), so grep its fixed parts ("Toggle", "menu"). The hit decides the fix:
+   - **in a locale file** → propose better wording there, the same way `review` does
+   - **in component code** → hard-coded. The fix is code: move it into the locale files under a key, add every target's translation, and replace the literal with the project's i18n call
+   - **more than one hit** → duplication: the same sentence lives in two places, usually worded differently (starogram: `landing-sections.tsx:961` vs `lib/i18n/uk.ts:66`). Keep the locale key, delete the copy
+   - **clipped** → propose a shorter target variant first. Change the layout only if no natural short form exists
+7. Report like `review`: each issue with page selector → `file:line` → proposed change, as a diff when asked to fix. A hard-coded string is never fixed by re-translating it.
 
 Don't take a screenshot unless the human asks, or a clipping verdict needs one to be believed. The probe's JSON is the evidence. When probing many pages, run them in a subagent so the page dumps stay out of the main context.
 

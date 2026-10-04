@@ -21,6 +21,11 @@
         "ref": "main"
       },
       "category": "seo"
+    },
+    {
+      "name": "translator",
+      "source": "./plugins/translator",
+      "category": "localization"
     }
   ]
 }

@@ -1,0 +1,40 @@
+{
+  "source": "en",
+  "targets": [
+    "uk",
+    "de"
+  ],
+  "product": "<Product> (<domain>) — one line on what it is",
+  "audience": "<who reads it; formal «ви» on web, informal «ти» in the bot — or whatever the style guide says>",
+  "models": {
+    "translate": "google/gemini-3.8-flash",
+    "review": "anthropic/claude-sonnet-5",
+    "cheap": "tencent/hy-mt2-30b-a3b"
+  },
+  "layers": [
+    {
+      "name": "web strings",
+      "source": "apps/web/src/locales/en.json",
+      "target": "apps/web/src/locales/{lang}.json"
+    },
+    {
+      "name": "content",
+      "source": "packages/content/en/",
+      "target": "packages/content/{lang}/"
+    }
+  ],
+  "skip_keys": [
+    "id",
+    "slug",
+    "emoji",
+    "icon",
+    "href",
+    "url",
+    "src",
+    "key",
+    "type"
+  ],
+  "allow_latin": [],
+  "glossary_check_skip": [],
+  "validate": null
+}

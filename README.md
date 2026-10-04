@@ -16,6 +16,7 @@ Each plugin is a *shared skill* (the portable craft) that reads *per-repo config
 | Plugin | What it does |
 |--------|--------------|
 | **design** | Distinctive, production-grade UI craft. Grounds every choice in semantic tokens + a known component substrate (shadcn/Tailwind/lucide), names and rejects the looks AI defaults to, and spends motion deliberately. Reads a per-repo `BRAND.md`, which `generate` can derive/maintain automatically and `apply <page>` can check pages against (deterministic report, never an auto-edit) — the same versioned, schema-validated contract in every installed repo ([`CONTRACT.md`](plugins/design/skills/design/CONTRACT.md)). |
+| **translator** | Translation and translation **review**, any language pair, that a native reader can't tell from original copy — meaning over words, the repo's glossary as law, register per surface, banned anglicisms/Russianisms. A zero-dependency script adds a machine draft from any OpenRouter model (or DeepL), an independent second-model reviewer, a blind `compare` for choosing the model, and free offline checks (dropped `{placeholders}`, glossary drift, leftover English, missing keys). Per-repo `agents-info/translator/`. |
 | **seo** | Autonomous SEO agent — GA4 + Search Console analytics and DataForSEO keyword/SERP/competitor research. Published separately at [`how2doo-ai/seo`](https://github.com/how2doo-ai/seo). |
 
 ## Pro

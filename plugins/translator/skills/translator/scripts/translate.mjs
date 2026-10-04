@@ -362,17 +362,45 @@ async function translateBatchLLM(cfg, ctx, model, batch, from, to) {
   return { out: batch.map((u) => ({ id: u.id, text: typeof obj[u.id] === "string" ? obj[u.id] : null })), cost: r.cost };
 }
 
+// DeepL translates placeholders ({sign} → {знаку}, {signo}; measured 2026-10-03),
+// so each one goes over the wire as an opaque <x i="N"/> tag that DeepL keeps
+// (ignore_tags), real HTML tags stay markup,
+// and the text around it is XML-escaped because tag_handling parses it.
+const xmlEsc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const xmlUnesc = (t) => t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+function protect(text) {
+  const keep = [], voids = [];
+  let out = "", last = 0;
+  for (const m of text.matchAll(PLACEHOLDER)) {
+    // A real HTML tag travels as markup, so DeepL translates the words between
+    // <b>…</b> instead of losing them; void tags are closed for the XML parser.
+    const html = /^<\/?[a-z]/i.test(m[0]);
+    const tag = html ? m[0].replace(/^<(br|hr|img|input|meta|link)\b([^>]*?)\/?>$/i, "<$1$2/>") : `<x i="${keep.length}"/>`;
+    if (html && tag !== m[0]) voids.push([tag, m[0]]);
+    out += xmlEsc(text.slice(last, m.index)) + tag;
+    if (!html) keep.push(m[0]);
+    last = m.index + m[0].length;
+  }
+  return { xml: out + xmlEsc(text.slice(last)), keep, voids };
+}
+function restore(xml, { keep, voids }) {
+  let t = xmlUnesc(xml.replace(/<x i="(\d+)"\s*\/>/g, (_, i) => `\u0000${i}\u0000`)).replace(/\u0000(\d+)\u0000/g, (_, i) => keep[+i]);
+  for (const [closed, orig] of voids) t = t.replace(closed, orig);
+  return t;
+}
+
 async function translateBatchDeepL(cfg, batch, from, to) {
   if (!cfg.keys.deepl) throw new Error("DEEPL_API_KEY not set");
   const url = cfg.deepl_url || (cfg.keys.deepl.endsWith(":fx") ? "https://api-free.deepl.com/v2/translate" : "https://api.deepl.com/v2/translate");
+  const prot = batch.map((u) => protect(u.text));
   const res = await fetch(url, {
     method: "POST",
     headers: { Authorization: `DeepL-Auth-Key ${cfg.keys.deepl}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ text: batch.map((u) => u.text), source_lang: deeplSource(from), target_lang: deeplTarget(to) }),
+    body: JSON.stringify({ text: prot.map((p) => p.xml), source_lang: deeplSource(from), target_lang: deeplTarget(to), tag_handling: "xml", ignore_tags: ["x"] }),
   });
   if (!res.ok) throw new Error(`deepl: HTTP ${res.status} ${(await res.text()).slice(0, 300)}`);
   const j = await res.json();
-  return { out: batch.map((u, i) => ({ id: u.id, text: j.translations[i]?.text ?? null })), cost: 0 };
+  return { out: batch.map((u, i) => ({ id: u.id, text: j.translations[i]?.text != null ? restore(j.translations[i].text, prot[i]) : null })), cost: 0 };
 }
 
 async function runTranslate(cfg, file, model, from, to) {

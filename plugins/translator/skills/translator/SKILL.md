@@ -57,7 +57,7 @@ node $T compare   en/new.json --models a,b,c             # several drafts + side
 node $T models                                           # live OpenRouter prices for the configured models; warns if one was retired
 ```
 
-Keys: `OPENROUTER_API_KEY` (and optionally `DEEPL_API_KEY`) from the environment, else `agents-info/translator/.env`, else the repo's `.env` (see `.env.example`). Never commit a key; never print one. Inside the how2doo fleet they live once in the platform's `secrets/`, and `node scripts/secrets.mjs with openrouter,deepl -- node $T …` injects them.
+Keys: `OPENROUTER_API_KEY` (and optionally `DEEPL_API_KEY`) from the environment, else `agents-info/translator/.env`, else the repo's `.env` (see `.env.example`). Never commit a key; never print one. Inside the how2doo fleet they live once in the platform's `secrets/`, and `node scripts/secrets.mjs with model,deepl -- node $T …` injects them (OpenRouter is the `model` group, `OPENROUTER_API_KEY`).
 
 What `check` can and cannot see: it catches mechanical breakage (a dropped `{count}`, a banned word, a glossary term rendered differently, an untranslated English word, a key missing on one side). It **cannot** judge naturalness, register or meaning — on real starogram copy all seven models scored 0–3 check issues while their blind quality scores ranged 3.07–4.60. That judgement is the reviewer's and yours.
 
